@@ -250,8 +250,17 @@ Token::Kind Lexer::t_single_comment()
 			token.text += input.last;
 			input.next();
 		}
-		token_end();
-		token.kind = Token::COMMENT;
+		if (input.last != Input::END)
+		{
+			input.next(); // skip over the trailing newline (TODO: CRLF?)
+			token_end();
+			token.kind = Token::COMMENT;
+		}
+		else
+		{
+			// TODO: error
+			token.kind = Token::END;
+		}
 	}
 	return token.kind;
 }
