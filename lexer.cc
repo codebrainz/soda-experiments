@@ -184,19 +184,26 @@ Token::Kind Lexer::t_char_lit()
 	{
 		token_start();
 		input.next(); // skip the current '
-		while (input.last != '\'')
+		while (input.last != '\'' && input.last != Input::END)
 		{
 			token.text += input.last;
-			std::cout << input.last <<std::endl;
 			if (input.last == '\\' && input.peek() == '\'')
 			{
 				token.text += input.next(); // store the next '
-				std::cout << "skipped. " << input.last << std::endl;
 			}
 			input.next();
 		}
-		token_end();
-		token.kind = Token::CHAR_ICONST;
+		if (input.last != Input::END)
+		{
+			token_end();
+			input.next();
+			token.kind = Token::CHAR_ICONST;
+		}
+		else
+		{
+			// TODO: error
+			token.kind = Token::END;
+		}
 	}
 	return token.kind;
 }

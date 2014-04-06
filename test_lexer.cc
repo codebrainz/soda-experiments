@@ -57,7 +57,6 @@ int main()
 
 	k = lex.next();
 	assert(k == Token::CHAR_ICONST);
-	std::cout << "'" << lex.token.text << "'" << std::endl;
 	assert(lex.token.text == U"\\'");
 
 	k = lex.next();
