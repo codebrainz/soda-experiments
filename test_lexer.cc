@@ -5,23 +5,23 @@
 
 using namespace Soda;
 
-#define CHECK(inp_text, tok, str_check)      \
-	do {                                     \
-		std::string inp_text_(inp_text);     \
-		inp_text_+=" ";                      \
-		ss << inp_text_;                     \
-		/*std::cout << "Test str: " << ss.str() << std::endl;*/ \
-		k = lex.next();                      \
-	std::cout << "Kind: " << k << std::endl; \
-	/*std::cout << "Text: " << lex.token.text << std::endl;*/ \
-		assert(k == Token::tok);             \
-		assert(lex.token.text == str_check); \
+#define CHECK(inp_text, tok, str_check)                           \
+	do {                                                          \
+		std::string inp_text_(inp_text);                          \
+		inp_text_+=" ";                                           \
+		ss << inp_text_;                                          \
+		k = lex.next();                                           \
+		/*std::cout << "Kind: " << k << std::endl;*/              \
+		/*std::cout << "Text: " << lex.token.text << std::endl;*/ \
+		assert(k == Token::tok);                                  \
+		assert(lex.token.text == str_check);                      \
 	} while (0)
 
 int main()
 {
 	std::stringstream ss;
 	Token::Kind k;
+	(void)k; // prevent warning in ndebug mode
 
 	ss << " "; // prime input stream;
 

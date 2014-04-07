@@ -29,6 +29,7 @@ void Lexer::token_end()
 // the token text, update the token end location and finally advance the input.
 void Lexer::skip(Input::char_type ch)
 {
+#ifndef NDEBUG
 	if (ch != input.last)
 	{
 		std::cerr << "Wrong current character while skipping to " <<
@@ -37,6 +38,7 @@ void Lexer::skip(Input::char_type ch)
 			"' (" << (char)input.last << ")." << std::endl;
 		std::terminate();
 	}
+#endif
 	token.text += input.last;
 	input.next();
 	token_end();
@@ -454,9 +456,14 @@ Token::Kind Lexer::next()
 
 #undef MATCH_SINGLE
 
-// EOF
-	if (token.kind == Token::ZERO && input.last == Input::END)
-		return Token::END;
+// EOF or unmatched input
+	if (token.kind == Token::ZERO)
+	{
+		if (input.last == Input::END) // EOF
+			return Token::END;
+		else // unmatched input
+			return Token::ERROR;
+	}
 
 	return token.kind;
 }

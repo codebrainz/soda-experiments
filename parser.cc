@@ -1,334 +1,219 @@
-
-#if 0
-
-#include <istream>
+#include "parser.h"
+#include "lexer.h"
+#include <sstream>
 #include <iostream>
-#include <cctype>
-#include <string>
+#include <fstream>
+#include <stdexcept>
 
-
-
-struct Token {
-
-	enum Kind {
-		END=-2,
-		ERROR=-1,
-		ZERO=0,
-
-		IDENT=256,
-		VAR,
-		NUMBER,
-		COMMENT,
-
-		DEC_ICONST=500,
-		HEX_ICONST,
-		BIN_ICONST,
-		OCT_ICONST,
-		DEC_FCONST,
-
-		LINE_COMMENT=600,
-		MULTI_COMMENT=601,
-	};
-
-	struct Range {
-		unsigned int start, end;
-		Range(unsigned int start=0, unsigned int end=0)
-			: start(start), end(end) {}
-	};
-
-	Kind kind;
-	Range line, column;
-	std::string text;
-
-	Token(Kind kind=ZERO, Range line=Range(0,0), Range column=Range(0,0))
-		: kind(kind), line(line), column(column), text("") {}
-
-	operator bool() const {
-		return (kind > ZERO);
-	}
-
-	bool operator!() const {
-		return (kind <= ZERO);
-	}
-
-	Token& operator=(Kind kind) {
-		this->kind = kind;
-		return *this;
-	}
-
-	operator Kind() const {
-		return kind;
-	}
-};
-
-
-class Parser {
-
-public:
-	Parser(std::istream& stream, std::string fn="<stream>")
-		: last_ch(' '), stream(stream), fn(fn) { }
-
-	Token::Kind get_token()
-	{
-		token.text = "";
-
-		skip_ws();
-
-		Token::Kind tok;
-		if (!!(tok = t_identifier()))
-			return tok;
-
-		if (!!(tok = t_integer()))
-			return tok;
-
-		if (!!(tok = t_comment()))
-			return tok;
-
-		if (!last_ch)
-			return Token::Kind::END;
-
-		if (last_ch == Token::Kind::ERROR)
-			return Token::Kind::ERROR;
-
-		int this_ch = last_ch;
-		last_ch = stream.get();
-
-		return (Token::Kind) this_ch;
-	}
-
-private:
-	int last_ch;
-	std::istream& stream;
-	std::string fn;
-	Token token;
-	unsigned int line, column;
-	bool done;
-
-	int next_ch()
-	{
-		last_ch = stream.get();
-		if (last_ch == '\n') // todo: handle carriage returns and unicode LEs
-		{
-			line++;
-			column = 0;
-		}
-		else
-		{
-			column++;
-		}
-		done = stream.eof();
-		return last_ch;
-	}
-
-	int peek()
-	{
-		return stream.peek();
-	}
-
-	void start_token()
-	{
-		token.line.start = line;
-		token.column.start = column;
-	}
-
-	void end_token()
-	{
-		token.line.end = line;
-		token.column.end = column;
-	}
-
-	void skip_ws()
-	{
-		while (isspace(last_ch))
-			last_ch = stream.get();
-	}
-
-	void skip_to_eol()
-	{
-		while (last_ch != '\n')
-			last_ch = stream.get();
-	}
-
-	bool is_hex(int ch)
-	{
-		return ((ch >= '0' && ch <= '9') || (ch >= 'A' && ch <= 'Z')
-				|| (ch >= 'a' && ch <= 'z'));
-	}
-
-	bool is_octal(int ch)
-	{
-		return (ch >= '0' && ch <= '7');
-	}
-
-	Token::Kind t_identifier() // [a-zA-Z_][a-zA-Z_0-9]*
-	{
-		if (isalpha(last_ch) || last_ch == '_')
-		{
-			token.text = last_ch;
-
-			start_token();
-			while (isalnum((last_ch = stream.get())) || last_ch == '_')
-				token.text += last_ch;
-			end_token();
-
-			if (token.text == "var")
-				token.kind = Token::Kind::VAR;
-			// ... other keywords ...
-			else
-				token.kind = Token::Kind::IDENT;
-		}
-		return token.kind;
-	}
-
-	Token::Kind t_float_or_integer()
-	{
-		bool is_float = false;
-		token.text += last_ch;
-		start_token();
-		while (isdigit(next_ch()) || last_ch == '.')
-		{
-			if (last_ch == '.')
-				is_float = true;
-			token.text += last_ch;
-		}
-		end_token();
-		if (is_float)
-			token.kind = Token::DEC_FCONST;
-		else
-			token.kind = Token::DEC_ICONST;
-		return token.kind;
-	}
-
-	Token::Kind t_integer()
-	{
-		if (isdigit(last_ch))
-		{
-			if (last_ch == '0')
-			{
-				next_ch();
-				if (last_ch == 'x' || last_ch == 'X') // 0[xX][a-fA-F0-9]+
-				{
-					next_ch();
-					start_token();
-					while (is_hex(last_ch))
-					{
-						token.text += last_ch;
-						last_ch = stream.get();
-					}
-					end_token();
-					token.kind = Token::Kind::HEX_ICONST;
-				}
-				else if (last_ch == 'b' || last_ch == 'B') // 0[bB][0-1]+
-				{
-					next_ch();
-					start_token();
-					while (last_ch == '0' || last_ch == '1')
-					{
-						token.text += last_ch;
-						last_ch = stream.get();
-					}
-					end_token();
-					token.kind = Token::Kind::BIN_ICONST;
-				}
-				else if (last_ch == 'o' || last_ch == 'O') // 0[oO][0-7]+
-				{
-					next_ch();
-					start_token();
-					while (is_octal(last_ch))
-					{
-						token.text += last_ch;
-						last_ch = stream.get();
-					}
-					end_token();
-					token.kind = Token::Kind::OCT_ICONST;
-				}
-				else // 0[0-9]*
-				{
-					start_token();
-					while (is_octal(last_ch))
-					{
-						token.text += last_ch;
-						last_ch = stream.get();
-					}
-					end_token();
-					token.kind = Token::Kind::OCT_ICONST;
-				}
-			}
-			else // [1-9][0-9]* | ([1-9]+\.[0-9]*)
-			{
-				t_float_or_integer();
-			}
-		}
-		else if (last_ch == '.' && isdigit(peek())) // \.[0-9]+)
-		{
-			t_float_or_integer();
-		}
-		else
-		{
-			token.kind = Token::Kind::ZERO;
-		}
-		return token.kind;
-	}
-
-	Token::Kind t_comment()
-	{
-		if (last_ch == '/' && peek() == '*')
-		{
-			next_ch(); // skip the *
-			start_token();
-			while (next_ch() != '*' && peek() != '/')
-			{
-				token.text += last_ch;
-				end_token(); // just keep updating end position to avoid grabbing */
-				if (stream.eof())
-				{
-					token.text = "End of file was reached inside a multi-line comment";
-					token.kind = Token::Kind::ERROR;
-					return token.kind;
-				}
-			}
-			next_ch(); // skip the trailing /
-			token.kind = Token::Kind::MULTI_COMMENT;
-		}
-		else if (last_ch == '/' && stream.peek() == '/')
-		{
-			next_ch(); // skip the /
-			start_token();
-			while (next_ch() != '\n')
-			{
-				token.text += last_ch;
-				end_token(); // just keep updatin end position to avoid grabbing newline
-				if (stream.eof())
-				{
-					token.text = "End of file was reached inside a line comment";
-					token.kind = Token::Kind::ERROR;
-					return token.kind;
-				}
-			}
-			next_ch(); // skip the trailing newline
-			token.kind = Token::Kind::LINE_COMMENT;
-		}
-		else
-		{
-			token.kind = Token::Kind::ZERO;
-		}
-		return token.kind;
-	}
-};
-
-int main()
+namespace Soda
 {
-	Token::Kind token;
-	Parser parser(std::cin, "<stdin>");
-	while ((token = parser.get_token()) != Token::Kind::END)
-	{
-		std::cout << "Token: " << (int) token << std::endl;
-		if (token == Token::Kind::ERROR)
-		{
-			std::cerr << "EOF\n" << std::endl;
-			break;
-		}
-	}
-	return 0;
+
+struct Parser
+{
+
+Lexer& lex;
+TU& tu;
+Token tok;
+Token::Kind last;
+
+Parser(Lexer& lex, TU& tu)
+	: lex(lex), tu(tu), last(lex.next())
+{
 }
-#endif
+
+int get_prec()
+{
+	// TODO: add rest
+	switch (last)
+	{
+		case '<':
+		case '>':
+			return 10;
+		case '+':
+		case '-':
+			return 20;
+		case '*':
+		case '/':
+		case '%':
+			return 40;
+		default:
+			return -1;
+	}
+}
+
+bool accept(char32_t ch)
+{
+	return accept((Token::Kind)ch);
+}
+
+bool accept(Token::Kind kind)
+{
+	if (last == kind)
+	{
+		tok = lex.token;
+		last = lex.next();
+		return true;
+	}
+	return false;
+}
+
+void expect(Token::Kind kind)
+{
+	if (!accept(kind))
+	{
+		std::stringstream ss;
+		ss << "Failed to accept token '" << kind << "'!";
+		throw std::runtime_error(ss.str());
+	}
+}
+
+void expect(char32_t ch)
+{
+	expect((Token::Kind)ch);
+}
+
+Token::Kind next()
+{
+	tok = lex.token;
+	last = lex.next();
+	return last;
+}
+
+void parse()
+{
+	Expr *exp;
+	while ((exp = p_expr()))
+	{
+		tu.stmts.emplace_back(new ExprStmt(exp));
+		exp = nullptr;
+	}
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+// number_expr: *_ICONST | FCONST
+Expr *p_number_expr()
+{
+	Expr *exp;
+	switch (last)
+	{
+		case Token::DEC_ICONST:
+			exp = new Integer(lex.token.text, 10);
+			break;
+		case Token::HEX_ICONST:
+			exp = new Integer(lex.token.text, 16);
+			break;
+		case Token::OCT_ICONST:
+			exp = new Integer(lex.token.text, 8);
+			break;
+		case Token::BIN_ICONST:
+			exp = new Integer(lex.token.text, 2);
+			break;
+		case Token::FCONST:
+			exp = new Float(lex.token.text);
+			break;
+		default: // error
+			exp = nullptr;
+			break;
+	}
+	next();
+	return exp;
+}
+
+// paren_expr: '(' expr ')'
+Expr *p_paren_expr()
+{
+	next();
+	Expr *exp = p_expr();
+	if (!exp)
+		return nullptr;
+	expect(')');
+	return exp;
+}
+
+// ident_expr: IDENT
+Expr *p_ident_expr()
+{
+	Expr *exp = new Ident(lex.token.text);
+	next();
+	return exp;
+}
+
+// primary_expr: ident_expr
+//             | number_expr
+//             | paren_expr
+Expr *p_primary_expr()
+{
+	switch (last)
+	{
+		case Token::IDENT:
+			return p_ident_expr();
+		case Token::DEC_ICONST:
+		case Token::HEX_ICONST:
+		case Token::OCT_ICONST:
+		case Token::BIN_ICONST:
+		case Token::FCONST:
+			return p_number_expr();
+		case '(':
+			return p_paren_expr();
+		default: // error
+			return nullptr;
+	}
+}
+
+// expr: primary_expr bin_op_rhs
+Expr *p_expr()
+{
+	Expr *lhs = p_primary_expr();
+	if (!lhs)
+		return nullptr;
+	return p_bin_op_rhs(0, lhs);
+}
+
+Expr *p_bin_op_rhs(int expr_prec, Expr *lhs)
+{
+	while (true)
+	{
+		int tok_prec = get_prec();
+		if (tok_prec < expr_prec)
+			return lhs;
+		char32_t op = last;
+		next();
+		Expr *rhs = p_primary_expr();
+		if (!rhs)
+			return nullptr;
+		int next_prec = get_prec();
+		if (tok_prec < next_prec)
+		{
+			rhs = p_bin_op_rhs(tok_prec + 1, rhs);
+			if (!rhs)
+				return nullptr;
+		}
+		lhs = new BinOp(op, lhs, rhs);
+	}
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+}; // struct Parser
+
+void parse(TU& tu, std::istream& stream)
+{
+	Lexer lex(stream);
+	Parser p(lex, tu);
+	p.parse();
+}
+
+void parse(TU& tu, const std::string& str)
+{
+	std::stringstream ss(str);
+	parse(tu, ss);
+}
+
+void parse(TU& tu)
+{
+	std::ifstream stream(tu.fn);
+	parse(tu, stream);
+}
+
+} // namespace Soda

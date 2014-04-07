@@ -6,6 +6,7 @@
 #include <uchar.h>
 #include <utf8/utf8.h>
 
+#include <cassert>
 namespace Soda
 {
 
@@ -30,18 +31,23 @@ Input::char_type Input::next()
 {
 	if (has_peeked)
 	{
-		//std::cout << "Have a peeked char ready (" << peeked << ")" << std::endl;
 		has_peeked = false;
-		return (last = peeked);
+		last = peeked;
+	}
+	else
+	{
+		if (eof() || stream.peek() == EOF)
+			return (last = Input::END);
+		last = utf8::next(iter, end);
+		// skip BOM, zero-width non-breaking space, or WORD JOINER
+		while (last == U'\uFEFF' || last == U'\u2060')
+		{
+			if (eof() || stream.peek() == EOF)
+				return (last = Input::END);
+			last = utf8::next(iter, end);
+		}
 	}
 
-	if (eof() || stream.peek() == EOF)
-		return (last = Input::END);
-
-	last = utf8::next(iter, end);
-	// skip BOM, zero-width non-breaking space, or WORD JOINER
-	while (last == 0xFEFF || last == 0x2060)
-		last = utf8::next(iter, end);
 	position++;
 
 	if (is_newline(last))
@@ -69,18 +75,10 @@ Input::char_type Input::peek()
 	}
 
 	has_peeked = true;
-	if (eof())
-	{
-		std::cout << "Peeked during eof()" << std::endl;
+	if (eof() || stream.peek() == EOF)
 		peeked = Input::END;
-	}
-	else if (stream.peek() == EOF)
-	{
-		std::cout << "Peeked when next is eof()" << std::endl;
-		peeked = Input::END;
-	}
 	else
-		peeked = static_cast<Input::char_type>(utf8::next(iter, end));
+		peeked = utf8::next(iter, end);
 
 	return peeked;
 }

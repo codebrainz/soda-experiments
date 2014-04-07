@@ -94,6 +94,32 @@ struct Token
 		text.clear();
 		kind = ZERO;
 	}
+
+	Token(const Token& tok)
+		: kind(tok.kind), position(tok.position), line(tok.line),
+		column(tok.column), text(tok.text) {}
+
+	Token& operator=(const Token& rhs)
+	{
+		if (&rhs != this)
+		{
+			kind = rhs.kind;
+			position = rhs.position;
+			line = rhs.line;
+			column = rhs.column;
+			text = rhs.text;
+		}
+		return *this;
+	}
+
+	void swap(Token& rhs)
+	{
+		Kind k = rhs.kind; rhs.kind = kind; kind = k;
+		Range r = rhs.position; rhs.position = position; position = r;
+		r = rhs.line; rhs.line = line; line = r;
+		r = rhs.column; rhs.column = column; column = r;
+		text.swap(rhs.text);
+	}
 };
 
 } // namespace Soda

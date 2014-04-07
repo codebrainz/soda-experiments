@@ -8,6 +8,7 @@ using namespace Soda;
 struct Test
 {
 	const char *str;
+	Input::size_type len;
 	Input::char_type last;
 	Input::size_type pos;
 	Input::size_type line;
@@ -15,13 +16,18 @@ struct Test
 };
 
 static const Test tests[] = {
-	{ "a",  'a',  3, 1, 1 },
-	{ "\n", '\n', 4, 2, 0 },
-	{ "\f", '\f', 5, 3, 0 },
-	{ " ",  ' ',  6, 3, 1 },
-	{ "\t", '\t', 7, 3, 2 },
-	{ "\r", '\r', 8, 4, 0 },
-	// todo: test some unicode stuff
+	{ u8"a",       1, U'a',       1,  0,  1 }, // 1. whatever letter
+	{ u8" ",       1, U' ',       2,  0,  2 }, // 2. normal space
+	{ u8"\t",      1, U'\t',      3,  0,  3 }, // 3. tabs
+	{ u8"\0",      1, U'\0',      4,  0,  4 }, // 4. \0 is treated like any other codepoint
+	{ u8"\n",      1, U'\n',      5,  1,  0 }, // 5. Line feed
+	{ u8"\v",      1, U'\v',      6,  2,  0 }, // 6. Vertical tab
+	{ u8"\f",      1, U'\f',      7,  3,  0 }, // 7. Form feed
+	{ u8"\r",      1, U'\r',      8,  4,  0 }, // 8. Carriage return
+	{ u8"\u0085",  2, U'\u0085',  9,  5,  0 }, // 9. Next line
+	{ u8"\u2028",  3, U'\u2028',  10, 6,  0 }, // 10. Line separator
+	{ u8"\u2029",  3, U'\u2029',  11, 7,  0 }, // 11. Paragraph separator
+	{ u8"\r\n",    2, U'\n',      13, 8,  0 }, // 12. Carriage return and line feed (CRLF)
 };
 
 static const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
@@ -29,25 +35,25 @@ static const size_t n_tests = sizeof(tests) / sizeof(tests[0]);
 int main()
 {
 	std::stringstream ss;
+
+	// Load up the input stream before passing to Input constructor
+	//ss.write(u8"\uFEFF", 3);
+	//ss.write(u8"\u2060", 3);
+	for (size_t i = 0; i < n_tests; i++)
+		ss.write(tests[i].str, tests[i].len);
+
 	Input inp(ss);
 
 	// Initial state
 	assert(inp.last == 0);
-	//assert(inp.peek() == Input::END);
+	assert(inp.peek() != Input::END);
 	assert(inp.position == 0);
 	assert(inp.line == 0);
 	assert(inp.column == 0);
 
-	ss << "\r\n"; // ensure taken together
-	inp.next();
-	assert(inp.last == '\n');  // ensure skips the \r
-	assert(inp.position == 2); // position accounts for both chars
-	assert(inp.line == 1);     // but only one line is incremented
-	assert(inp.column == 0);   // and the column is still reset
-
+	// Tests
 	for (size_t i = 0; i < n_tests; i++)
 	{
-		ss << tests[i].str;
 		inp.next();
 		assert(inp.last == tests[i].last);
 		assert(inp.position == tests[i].pos);

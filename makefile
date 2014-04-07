@@ -7,11 +7,13 @@ else
 	SODA_CXXFLAGS += -g -O0
 endif
 
-SODA_SOURCES = input.cc lexer.cc main.cc parser.cc token.cc utils.cc
+SODA_SOURCES = main.cc input.cc lexer.cc token.cc ast.cc parser.cc utils.cc
 SODA_OBJECTS = $(SODA_SOURCES:.cc=.o)
 SODA_HEADERS = $(wildcard *.h)
 
-all: sodac test_input test_lexer
+TEST = @echo "  [TEST] $<" && ./$<
+
+all: sodac
 
 sodac: $(SODA_OBJECTS)
 	$(CXX) $(SODA_CXXFLAGS) -o $@ $^ $(SODA_LIBS)
@@ -25,10 +27,26 @@ test_input: input.cc utils.cc test_input.cc
 test_lexer: input.cc token.cc lexer.cc utils.cc test_lexer.cc
 	$(CXX) -o $@ $(SODA_CXXFLAGS) $^ $(SODA_LIBS)
 
+test_parser: input.cc token.cc lexer.cc utils.cc ast.cc parser.cc test_parser.cc
+	$(CXX) -o $@ $(SODA_CXXFLAGS) $^ $(SODA_LIBS)
+
 makefile.deps:
 	$(CXX) -MM  $(SODA_CXXFLAGS) $(wildcard *.cc) > $@
 
 -include makefile.deps
 
 clean:
-	$(RM) *.o sodac test_input test_lexer makefile.deps
+	$(RM) *.o sodac test_input test_lexer test_parser makefile.deps
+
+check-input: test_input
+	$(TEST)
+
+check-lexer: test_lexer
+	$(TEST)
+
+check-parser: test_parser
+	$(TEST)
+
+check: check-input check-lexer check-parser
+
+.PHONY: all clean check-input check-lexer check-parser check
