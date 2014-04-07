@@ -7,7 +7,7 @@ else
 	SODA_CXXFLAGS += -g -O0
 endif
 
-SODA_SOURCES = input.cc lexer.cc main.cc parser.cc token.cc
+SODA_SOURCES = input.cc lexer.cc main.cc parser.cc token.cc utils.cc
 SODA_OBJECTS = $(SODA_SOURCES:.cc=.o)
 SODA_HEADERS = $(wildcard *.h)
 
@@ -19,10 +19,10 @@ sodac: $(SODA_OBJECTS)
 %.o: %.cc
 	$(CXX) -c -fPIC $(SODA_CXXFLAGS) -o $@ $<
 
-test_input: input.cc test_input.cc
+test_input: input.cc utils.cc test_input.cc
 	$(CXX) -o $@ $(SODA_CXXFLAGS) $^ $(SODA_LIBS)
 
-test_lexer: input.cc token.cc lexer.cc test_lexer.cc
+test_lexer: input.cc token.cc lexer.cc utils.cc test_lexer.cc
 	$(CXX) -o $@ $(SODA_CXXFLAGS) $^ $(SODA_LIBS)
 
 makefile.deps:

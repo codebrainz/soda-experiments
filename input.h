@@ -25,6 +25,8 @@ public:
 	size_type position, line, column;
 	char_type last;
 
+	std::istream& input_stream() { return stream; }
+
 private:
 	std::istream& stream;
 	std::istreambuf_iterator<char> end, iter;

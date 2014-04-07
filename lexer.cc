@@ -1,4 +1,5 @@
 #include "lexer.h"
+#include "utils.h"
 #include <iostream>
 
 namespace Soda
@@ -8,27 +9,6 @@ Lexer::Lexer(std::istream& stream)
 	: token(), input(stream)
 {
 	input.next(); // prime input.last
-}
-
-Token::Kind Lexer::next()
-{
-	if (input.eof())
-		return Token::END;
-
-	input.skip_whitespace();
-
-	if (t_identifier())
-		return token.kind;
-	else if (t_number())
-		return token.kind;
-	else if (t_comment())
-		return token.kind;
-	// ...
-	else if (t_symbols())
-		return token.kind;
-
-	std::cerr << "WTF!?" << std::endl;
-	return Token::ERROR;
 }
 
 void Lexer::token_start()
@@ -45,395 +25,439 @@ void Lexer::token_end()
 	token.column.end = input.column;
 }
 
-static inline bool is_upper(Input::char_type ch)
+// verify the current input.last is what we expect and then save it into
+// the token text, update the token end location and finally advance the input.
+void Lexer::skip(Input::char_type ch)
 {
-	return (ch >= 'A' && ch <= 'Z');
+	if (ch != input.last)
+	{
+		std::cerr << "Wrong current character while skipping to " <<
+			"next character. It was supposed to be '" << ch <<
+			"' (" << (char)ch << ") but it was '" << input.last <<
+			"' (" << (char)input.last << ")." << std::endl;
+		std::terminate();
+	}
+	token.text += input.last;
+	input.next();
+	token_end();
 }
 
-static inline bool is_lower(Input::char_type ch)
-{
-	return (ch >= 'a' && ch <= 'z');
-}
-
-static inline bool is_alpha(Input::char_type ch)
-{
-	return (is_lower(ch) || is_upper(ch));
-}
-
-static inline bool is_digit(Input::char_type ch)
-{
-	return (ch >= '0' && ch <= '9');
-}
-
-static inline bool is_alnum(Input::char_type ch)
-{
-	return (is_alpha(ch) || is_digit(ch));
-}
-
-Token::Kind Lexer::t_identifier()
+Token::Kind Lexer::next()
 {
 	token.clear();
+
+// Whitespace
+	while (Soda::is_whitespace(input.last))
+		input.next();
+
+// Identifiers: [a-zA-Z_][a-zA-Z_0-9]*
 	if (is_alpha(input.last) || input.last == '_')
 	{
-		token.text = input.last;
 		token_start();
-		while (is_alnum(input.next()))
-			token.text += input.last;
-		token_end();
+		skip(input.last);
+		while (is_alnum(input.last) || input.last == '_')
+			skip(input.last);
 		token.kind = Token::IDENT;
 	}
-	return token.kind;
-}
-
-static inline bool is_hex(Input::char_type ch)
-{
-	return (ch >= '0' && ch <= '9') ||
-	       (ch >= 'A' && ch <= 'F') ||
-	       (ch >= 'a' && ch <= 'f');
-}
-
-static inline bool is_binary(Input::char_type ch)
-{
-	return (ch == '0' || ch == '1');
-}
-
-static inline bool is_octal(Input::char_type ch)
-{
-	return (ch >= '0' && ch <= '7');
-}
-
-Token::Kind Lexer::t_prefixed_number()
-{
-	token.clear();
-	if (input.last == '0')
+// Numbers
+	else if (is_digit(input.last) ||
+	         (input.last == '.' && is_digit(input.peek())))
 	{
-		switch (input.peek())
-		{
-			case 'x':
-			case 'X':
-				token_start();
-				input.next(); input.next(); // skip 0[xX]
-				token.text = input.last;
-				while (is_hex(input.next()))
-					token.text += input.last;
-				token_end();
-				token.kind = Token::HEX_ICONST;
-				break;
-			case 'b':
-			case 'B':
-				token_start();
-				input.next(); input.next(); // skip 0[bB]
-				token.text = input.last;
-				while (is_binary(input.next()))
-					token.text += input.last;
-				token_end();
-				token.kind = Token::BIN_ICONST;
-				break;
-			case 'o':
-			case 'O':
-				token_start();
-				input.next(); input.next(); // skip 0[oO]
-				token.text = input.last;
-				while (is_octal(input.next()))
-					token.text += input.last;
-				token_end();
-				token.kind = Token::OCT_ICONST;
-				break;
-			default:
-				break;
-		}
-	}
-	return token.kind;
-}
-
-Token::Kind Lexer::t_float_or_integer()
-{
-	token.clear();
-	if (is_digit(input.last)
-	    || (input.last == '.' && is_digit(input.peek()))) // can start with `.[0-9]+`
-	{
-		bool is_octal = false, is_float = false;
-
-		if (input.last == '0')
-			is_octal = true;
-
+		bool found_dot = (input.last == '.');
 		token_start();
-		while (is_digit(input.last) || (!is_float && input.last == '.'))
+		skip(input.last);
+// 0[xX][a-fA-F0-9]*
+		if (input.last == 'x' || input.last == 'X')
 		{
-			if (input.last == '.')
-				is_float = true;
-			token.text += input.last;
-			input.next();
+			skip(input.last);
+			token.text.clear(); token_start(); // skip over the 0x prefix
+			while (is_hex(input.last))
+				skip(input.last);
+			token.kind = Token::HEX_ICONST;
 		}
-		token_end();
-
-		if (is_octal && !is_float)
+// 0[bB][0-1]*
+		else if (input.last == 'b' || input.last == 'B')
+		{
+			skip(input.last);
+			token.text.clear(); token_start(); // skip over the 0b prefix
+			while (is_binary(input.last))
+				skip(input.last);
+			token.kind = Token::BIN_ICONST;
+		}
+// 0[oO][0-7]*
+		else if (input.last == 'o' || input.last == 'O')
+		{
+			skip(input.last);
+			token.text.clear(); token_start(); // skip over the 0o prefix
+			while (is_octal(input.last))
+				skip(input.last);
 			token.kind = Token::OCT_ICONST;
-		else if (is_float)
-			token.kind = Token::FCONST;
+		}
+// ([0-9]+|([0-9]*\.[0-9]+|[0-9]+\.[0-9]*))
 		else
-			token.kind = Token::DEC_ICONST;
+		{
+			while (is_digit(input.last) || input.last == '.')
+			{
+				if (input.last == '.')
+				{
+					if (!found_dot)
+						found_dot = true;
+					// else ERROR
+				}
+				skip(input.last);
+			}
+			if (found_dot)
+				token.kind = Token::FCONST;
+			else
+				token.kind = Token::DEC_ICONST;
+		}
 	}
-	return token.kind;
-}
-
-Token::Kind Lexer::t_char_lit()
-{
-	token.clear();
-	if (input.last == '\'')
+// Char Literal: "'"[^']+"'"
+	else if (input.last == '\'')
 	{
-		token_start();
-		input.next(); // skip the current '
+		skip('\'');
+		token.text.clear(); token_start(); // skip the '
 		while (input.last != '\'' && input.last != Input::END)
 		{
-			token.text += input.last;
 			if (input.last == '\\' && input.peek() == '\'')
 			{
-				token.text += input.next(); // store the next '
+				skip('\\');
+				skip('\'');
 			}
-			input.next();
+			else
+				skip(input.last);
 		}
 		if (input.last != Input::END)
 		{
-			token_end();
-			input.next();
+			input.next(); // skip the trailing '
 			token.kind = Token::CHAR_ICONST;
 		}
 		else
-		{
-			// TODO: error
-			token.kind = Token::END;
-		}
+			token.kind = Token::ERROR;
 	}
-	return token.kind;
-}
-
-Token::Kind Lexer::t_number()
-{
-	token.clear();
-	if (t_prefixed_number())
-		return token.kind;
-	else if (t_float_or_integer())
-		return token.kind;
-	else if (t_char_lit())
-		return token.kind;
-	return token.kind;
-}
-
-// FIXME: copied from input.cc:is_newline()
-static inline bool is_newline(Input::char_type ch)
-{ // http://www.unicode.org/standard/reports/tr13/tr13-5.html
-	switch (ch)
+// String Literal: "\""[^"]*"\""
+	else if (input.last == '"')
 	{
-		case 0x000A: // Line Feed
-		case 0x000B: // Vertical Tab
-		case 0x000C: // Form Feed
-		case 0x000D: // Carriage Return
-		case 0x0085: // Next Line
-		case 0x2028: // Line Separator
-		case 0x2029: // Paragraph Separator
-			return true;
-		default:
-			return false; // Not a new line character
-	}
-}
-
-Token::Kind Lexer::t_single_comment()
-{
-	token.clear();
-	if (input.last == '/' && input.peek() == '/')
-	{
-		token_start();
-		input.next(); input.next(); // skip over //
-		while (!is_newline(input.last) && input.last != Input::END)
+		skip('"');
+		token.text.clear(); token_start(); // skip the "
+		while (input.last != '"' && input.last != Input::END)
 		{
-			token.text += input.last;
-			input.next();
-		}
-		if (input.last != Input::END)
-		{
-			input.next(); // skip over the trailing newline (TODO: CRLF?)
-			token_end();
-			token.kind = Token::COMMENT;
-		}
-		else
-		{
-			// TODO: error
-			token.kind = Token::END;
-		}
-	}
-	return token.kind;
-}
-
-Token::Kind Lexer::t_multi_comment()
-{
-	token.clear();
-	if (input.last == '/' && input.peek() == '*')
-	{
-		token_start();
-		input.next(); // skip the /*
-		while (input.last != '*' && input.peek() != '/' && input.last != Input::END)
-		{
-			token.text += input.last;
-			input.next();
-		}
-
-		if (input.last != Input::END)
-		{
-			input.next(); // skip over the / we peeked
-			token_end();
-			token.kind = Token::COMMENT;
-		}
-		else
-		{
-			// TODO: error
-			token.kind = Token::END;
-		}
-	}
-	return token.kind;
-}
-
-Token::Kind Lexer::t_comment()
-{
-	token.clear();
-	if (t_single_comment())
-		return token.kind;
-	else if (t_multi_comment())
-		return token.kind;
-	return token.kind;
-}
-
-Token::Kind Lexer::t_string_double()
-{
-	return Token::ERROR;
-}
-
-Token::Kind Lexer::t_string_triple_double()
-{
-	return Token::ERROR;
-}
-
-Token::Kind Lexer::t_string_triple_single()
-{
-	return Token::ERROR;
-}
-
-Token::Kind Lexer::t_string_lit()
-{
-	token.clear();
-	if (t_string_double())
-		return token.kind;
-	else if (t_string_triple_double())
-		return token.kind;
-	else if (t_string_triple_single())
-		return token.kind;
-	return token.kind;
-}
-
-Token::Kind Lexer::t_symbols()
-{
-	token.clear();
-	if (input.last == '>')
-	{
-		token_start();
-		if (input.peek() == '>')
-		{
-			input.next(); // skip the 2nd >
-			if (input.peek() == '=') // >>=
+			if (input.last == '\\' && input.peek() == '"')
 			{
-				input.next(); // skip the =
-				token_end();
-				token.text = U">>=";
+				skip('\\');
+				skip('\"');
+			}
+			else
+				skip(input.last);
+		}
+		if (input.last != Input::END)
+		{
+			input.next(); // skip the trailing "
+			token.kind = Token::STR_LIT;
+		}
+		else
+			token.kind = Token::ERROR;
+	}
+// (">>="|">>"|">="|">")
+	else if (input.last == '>')
+	{
+		token_start();
+		skip('>');
+		if (input.last == '>')
+		{
+			skip('>');
+// ">>="
+			if (input.last == '=')
+			{
+				skip('=');
 				token.kind = Token::RSHIFT_ASSIGN;
 			}
-			else // >>
-			{
-				token_end();
-				token.text = U">>";
+// ">>"
+			else
 				token.kind = Token::RSHIFT;
-			}
 		}
-		else // >
+// ">="
+		else if (input.last == '=')
 		{
-			token_end();
-			token.text = U">";
-			token.kind = Token::GT;
+			skip('=');
+			token.kind = Token::GE_OP;
 		}
+// ">"
+		else
+			token.kind = Token::GT;
 	}
-	else if (input.last == '<') // <|<<|<<=
+// ("<<="|"<<"|"<="|"<")
+	else if (input.last == '<')
 	{
 		token_start();
-		if (input.peek() == '<') // <<|<<=
+		skip('<');
+		if (input.last == '<')
 		{
-			input.next();
-			if (input.peek() == '=') // <<=
+			skip('<');
+// "<<="
+			if (input.last == '=')
 			{
-				token_end();
-				token.text = U"<<=";
+				skip('=');
 				token.kind = Token::LSHIFT_ASSIGN;
 			}
+// "<<"
 			else // <<
-			{
-				token_end();
-				token.text = U"<<";
 				token.kind = Token::LSHIFT;
-			}
 		}
-		else // <
+// "<="
+		else if (input.last == '=')
 		{
-			token_end();
-			token.text = U"<";
-			token.kind = Token::LT;
+			skip('=');
+			token.kind = Token::LE_OP;
 		}
+// "<"
+		else // <
+			token.kind = Token::LT;
 	}
-	else if (input.last == '+') // +|+=|++
+// ("+="|"++"|"+")
+	else if (input.last == '+')
 	{
 		token_start();
-		if (input.peek() == '=') // +=
+		skip('+');
+// "+="
+		if (input.last == '=')
 		{
-			input.next(); // skip the =
-			token_end();
-			token.text = U"+=";
+			skip('=');
 			token.kind = Token::ADD_ASSIGN;
 		}
-		else if (input.peek() == '+') // ++
+// "++"
+		else if (input.last == '+')
 		{
-			input.next(); // skip the 2nd +
-			token_end();
-			token.text = U"++";
+			skip('+');
 			token.kind = Token::INC_OP;
 		}
-		else // +
-		{
-			token_end();
-			token.text = U"+";
+// "+"
+		else
 			token.kind = Token::PLUS;
-		}
 	}
-	else if (input.last == '-') // -|-=|--
+// ("-="|"--"|"->"|"-")
+	else if (input.last == '-')
 	{
 		token_start();
-		if (input.peek() == '=') // -=
+		skip('-');
+// "-="
+		if (input.last == '=')
 		{
-			input.next(); // skip the =
-			token_end();
-			token.text = U"-=";
+			skip('=');
 			token.kind = Token::SUB_ASSIGN;
 		}
-		else if (input.peek() == '-') // --
+// "--"
+		else if (input.last == '-')
 		{
-			input.next(); // skip the -
-			token_end();
-			token.text = U"--";
+			skip('-');
 			token.kind = Token::DEC_OP;
 		}
-		else // -
+// "->"
+		else if (input.last == '>')
 		{
-			token_end();
-			token.text = U"-";
-			token.kind = Token::MINUS;
+			skip('>');
+			token.kind = Token::PTR_OP;
 		}
+// "-"
+		else
+			token.kind = Token::MINUS;
 	}
+// ("*="|"*")
+	else if (input.last == '*')
+	{
+		token_start();
+		skip('*');
+// "*="
+		if (input.last == '=')
+		{
+			skip('=');
+			token.kind = Token::MUL_ASSIGN;
+		}
+// "*"
+		else
+			token.kind = Token::MULTIPLY;
+	}
+// ("/="|"/"|"//"[^\n]*|"/*".*?"*/")
+	else if (input.last == '/')
+	{
+		token_start();
+		skip('/');
+// "/="
+		if (input.last == '=')
+		{
+			skip('=');
+			token.kind = Token::DIV_ASSIGN;
+		}
+// "//"[^\n]*
+		else if (input.last == '/') // // single comment
+		{
+			skip('/');
+			token.text.clear();
+			while (!is_newline(input.last) && input.last != Input::END)
+			{
+				token.text += input.last;
+				token_end();
+				input.next();
+			}
+			if (input.last != Input::END)
+			{
+				input.next(); // skip the newline
+				token.kind = Token::COMMENT;
+			}
+			else
+				token.kind = Token::END;
+		}
+// "/*".*?"*/"
+		else if (input.last == '*') // /* multi-comment
+		{
+			skip('*');
+			token.text.clear();
+			while (input.last != '*' && input.peek() != '/' && input.last != Input::END)
+			{
+				token.text += input.last;
+				token_end();
+				input.next();
+			}
+			if (input.last != Input::END)
+			{
+				input.next(); input.next(); // skip the trailing */
+				token.kind = Token::COMMENT;
+			}
+			else
+				token.kind = Token::ERROR;
+		}
+// "/"
+		else // /
+			token.kind = Token::DIVIDE;
+	}
+// ("%="|"%")
+	else if (input.last == '%')
+	{
+		token_start();
+		skip('%');
+// "%="
+		if (input.last == '=')
+		{
+			skip('=');
+			token.kind = Token::MOD_ASSIGN;
+		}
+// "%"
+		else
+			token.kind = Token::MODULO;
+	}
+// ("&="|"&&"|"&")
+	else if (input.last == '&')
+	{
+		token_start();
+		skip('&');
+// "&="
+		if (input.last == '=')
+		{
+			skip('=');
+			token.kind = Token::AND_ASSIGN;
+		}
+// "&&"
+		else if (input.last == '&')
+		{
+			skip('&');
+			token.kind = Token::LOG_AND;
+		}
+// "&"
+		else
+			token.kind = Token::BOOL_AND;
+	}
+// ("^="|"^")
+	else if (input.last == '^')
+	{
+		token_start();
+		skip('^');
+// "^="
+		if (input.last == '=')
+		{
+			skip('=');
+			token.kind = Token::XOR_ASSIGN;
+		}
+// "^"
+		else
+			token.kind = Token::BOOL_XOR;
+	}
+// ("|="|"||"|"|")
+	else if (input.last == '|')
+	{
+		token_start();
+		skip('|');
+// "|="
+		if (input.last == '=')
+		{
+			skip('=');
+			token.kind = Token::OR_ASSIGN;
+		}
+// "||"
+		else if (input.last == '|')
+		{
+			skip('|');
+			token.kind = Token::LOG_OR;
+		}
+// "|"
+		else
+			token.kind = Token::BOOL_OR;
+	}
+// ("!="|"!")
+	else if (input.last == '!')
+	{
+		token_start();
+		skip('!');
+		if (input.last == '=')
+		{
+			skip('=');
+			token.kind = Token::NE_OP;
+		}
+		else
+			token.kind = Token::NOT;
+	}
+// ("=="|"=")
+	else if (input.last == '=')
+	{
+		token_start();
+		skip('=');
+// "=="
+		if (input.last == '=')
+		{
+			skip('=');
+			token.kind = Token::EQ_OP;
+		}
+// "="
+		else
+			token.kind = Token::EQ;
+	}
+
+// Single characters
+
+#define MATCH_SINGLE(ch, tok_kind)    \
+	else if (input.last == ch) {      \
+		token_start(); skip(ch);      \
+		token.kind = Token::tok_kind; \
+	}
+
+	MATCH_SINGLE('.', DOT)
+	MATCH_SINGLE('~', TILDE)
+	MATCH_SINGLE('?', QUESTION)
+	MATCH_SINGLE(':', COLON)
+	MATCH_SINGLE(';', SEMICOLON)
+	MATCH_SINGLE(',', COMMA)
+	MATCH_SINGLE('(', LPAREN)
+	MATCH_SINGLE(')', RPAREN)
+	MATCH_SINGLE('[', LBRACKET)
+	MATCH_SINGLE(']', RBRACKET)
+	MATCH_SINGLE('{', LBRACE)
+	MATCH_SINGLE('}', RBRACE)
+
+#undef MATCH_SINGLE
+
+// EOF
+	if (token.kind == Token::ZERO && input.last == Input::END)
+		return Token::END;
+
 	return token.kind;
 }
 
