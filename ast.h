@@ -74,7 +74,7 @@ typedef std::vector<ExprPtr> ExprList;
 typedef std::vector<StmtPtr> StmtList;
 
 typedef std::shared_ptr<Ident> IdentPtr;
-//typedef std::vector<IdentPtr> IdentList;
+typedef std::vector<IdentPtr> IdentList;
 
 struct Block : public Expr
 {
@@ -262,6 +262,36 @@ struct Alias : public Stmt
 		type->dump(stream);
 		alias->dump(stream);
 		stream << "</Alias>";
+	}
+};
+
+struct Import : public Stmt
+{
+	IdentPtr ident;
+	Import(Ident *ident) : ident(ident) {}
+	virtual void dump(std::ostream& stream)
+	{
+		stream << "<Import name=\"" << ident->name << "\"/>";
+	}
+};
+
+struct ClassDef : public Stmt
+{
+	IdentPtr name;
+	StmtList stmts;
+	ClassDef(Ident *name, const StmtList& stmts) : name(name), stmts(stmts) {}
+	virtual void dump(std::ostream& stream)
+	{
+		stream << "<ClassDef name=\"" << name->name << "\"";
+		if (stmts.size() > 0)
+		{
+			stream << ">";
+			for (auto &stmt : stmts)
+				stmt->dump(stream);
+			stream << "</ClassDef>";
+		}
+		else
+			stream << "/>";
 	}
 };
 

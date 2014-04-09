@@ -90,6 +90,9 @@ struct Token
 		VAR,
 		FUN,
 		RETURN,
+		IMPORT,
+		FROM,
+		CLASS,
 	};
 
 	struct Range {

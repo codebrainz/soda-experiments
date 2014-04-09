@@ -1,9 +1,6 @@
+#include "sodainc.h" // pch
 #include "parser.h"
 #include "lexer.h"
-#include <sstream>
-#include <iostream>
-#include <fstream>
-#include <stdexcept>
 #include <deque>
 #include <cassert>
 
@@ -98,7 +95,7 @@ void expect(Token::Kind kind)
 	if (!accept(kind))
 	{
 		std::stringstream ss;
-		ss << "unexpected token `" << kind << "', expecting `" << last << "'";
+		ss << "unexpected token `" << last << "', expecting `" << kind << "'";
 		SYNTAX_ERROR(ss.str());
 	}
 }
@@ -152,18 +149,40 @@ void p_tu(TU& tu)
 	}
 }
 
-// stmt ::= alias | var_decl | func_def .
+// stmt ::= alias
+//        | import_stmt
+//        | var_decl
+//        | func_def
+//        | class_def
+//        .
 Stmt *p_stmt()
 {
 	Stmt *stmt = nullptr;
 	if ((stmt = p_alias()))
 		return stmt;
+	else if ((stmt = p_import_stmt()))
+		return stmt;
 	else if ((stmt = p_var_decl()))
 		return stmt;
 	else if ((stmt = p_func_def()))
 		return stmt;
-	else if ((stmt = p_return_stmt()))
+	else if ((stmt = p_class_def()))
 		return stmt;
+	return stmt;
+}
+
+// import_stmt ::= IMPORT IDENT [';'] .
+Stmt *p_import_stmt()
+{
+	Stmt *stmt = nullptr;
+	if (last == Token::IMPORT)
+	{
+		next();
+		Ident *ident = new Ident(text());
+		expect(Token::IDENT);
+		stmt = new Import(ident);
+		accept(';');
+	}
 	return stmt;
 }
 
@@ -205,7 +224,7 @@ Stmt *p_var_decl()
 	return stmt;
 }
 
-// func_def ::= FUN IDENT '(' arg_list ')' '{' stmt_list '}' [';'] .
+// func_def ::= FUN IDENT '(' arg_list ')' '{' local_stmt_list '}' [';'] .
 Stmt *p_func_def()
 {
 	Stmt *stmt = nullptr;
@@ -217,7 +236,7 @@ Stmt *p_func_def()
 		StmtList args = p_arg_list();
 		expect(')');
 		expect('{');
-		StmtList stmts = p_stmt_list();
+		StmtList stmts = p_local_stmt_list();
 		expect('}');
 		accept(';');
 		stmt = new FuncDef(new Ident(U"__placeholder__"), name, args, stmts);
@@ -246,6 +265,24 @@ StmtList p_arg_list()
 	return lst;
 }
 
+// class_def ::= CLASS IDENT '{' stmt_list '}' [';'] .
+Stmt *p_class_def()
+{
+	Stmt *stmt = nullptr;
+	if (last == Token::CLASS)
+	{
+		next();
+		Ident *name = new Ident(text());
+		expect(Token::IDENT);
+		expect('{');
+		StmtList stmts = p_stmt_list();
+		expect('}');
+		accept(';');
+		stmt = new ClassDef(name, stmts);
+	}
+	return stmt;
+}
+
 // return_stmt ::= RETURN [ expr ] [';'] .
 Stmt *p_return_stmt()
 {
@@ -255,9 +292,47 @@ Stmt *p_return_stmt()
 		next();
 		Expr *expr = p_expr();
 		stmt = new ReturnStmt(expr);
-		accept(';');
 	}
 	return stmt;
+}
+
+// local_stmt ::= alias
+//             | import_stmt
+//             | var_decl
+//             | func_def
+//             | return_stmt
+//             | class_def
+//             .
+Stmt *p_local_stmt()
+{
+	Stmt *stmt = nullptr;
+	if ((stmt = p_alias()))
+		return stmt;
+	else if ((stmt = p_import_stmt()))
+		return stmt;
+	else if ((stmt = p_var_decl()))
+		return stmt;
+	else if ((stmt = p_func_def()))
+		return stmt;
+	else if ((stmt = p_return_stmt()))
+		return stmt;
+	else if ((stmt = p_class_def()))
+		return stmt;
+	return stmt;
+}
+
+// local_stmt_list ::= local_stmt { local_stmt } .
+StmtList p_local_stmt_list()
+{
+	StmtList lst;
+	Stmt *stmt;
+	while ((stmt = p_local_stmt()))
+	{
+		lst.emplace_back(stmt);
+		accept(';');
+	}
+	accept(';');
+	return lst;
 }
 
 // stmt_list ::= stmt { stmt } .
@@ -278,28 +353,42 @@ StmtList p_stmt_list()
 Expr *p_number_expr()
 {
 	Expr *exp;
+	int base;
+
 	switch (last)
 	{
-		case Token::DEC_ICONST:
-			exp = new Integer(text(), 10);
-			break;
-		case Token::HEX_ICONST:
-			exp = new Integer(text(), 16);
-			break;
-		case Token::OCT_ICONST:
-			exp = new Integer(text(), 8);
-			break;
-		case Token::BIN_ICONST:
-			exp = new Integer(text(), 2);
-			break;
-		case Token::FCONST:
-			exp = new Float(text());
-			break;
-		default: // error
-			exp = nullptr;
-			break;
+		case Token::DEC_ICONST: base = 10; break;
+		case Token::HEX_ICONST: base = 16; break;
+		case Token::OCT_ICONST: base = 8;  break;
+		case Token::BIN_ICONST: base = 2;  break;
+		case Token::FCONST:     base = 0;  break;
+		default:                base = -1; break;
 	}
-	next();
+
+	if (base < 0)
+		return nullptr;
+
+	try
+	{
+		if (base == 0)
+			exp = new Float(text());
+		else
+			exp = new Integer(text(), base);
+		next();
+	}
+	catch (std::invalid_argument&)
+	{
+		std::stringstream ss;
+		ss << "failed to parse ";
+		if (base == 0)
+			ss << "floating point number `" << text() << "'";
+		else
+			ss << "base " << base << " integer `" << text() << "'";
+		if (text().empty())
+			ss << ". prefixed numbers must have at least 1 digit";
+		SYNTAX_ERROR(ss.str());
+	}
+
 	return exp;
 }
 
@@ -359,8 +448,16 @@ Expr *p_primary_expr()
 		case '(':
 			return p_paren_expr();
 		default: // error
-			std::cerr << "Unexpected token '" << last << "'" << std::endl;
+		{
+			std::stringstream ss;
+			if (text().empty())
+				ss << "syntax error";
+			else
+				ss << "unexpected token `" << text() << "' (" << last << ")";
+			ss << ", expecting primary expression";
+			SYNTAX_ERROR(ss.str());
 			return nullptr;
+		}
 	}
 }
 
@@ -396,98 +493,6 @@ Expr *p_bin_op_rhs(int expr_prec, Expr *lhs)
 		lhs = new BinOp(op, lhs, rhs);
 	}
 }
-
-#if 0
-
-Stmt* p_var_decl()
-{
-	Stmt *stmt = nullptr;
-	if (last == Token::IDENT) // skip over type
-	{
-		Ident *type = new Ident(text());
-		save();
-		if (accept(Token::IDENT)) // skip over the identifier
-		{
-			Ident *name = new Ident(text());
-			if (accept(Token::EQUAL)) // check if have init assignment
-			{
-				// have var decl with init assignment
-				Expr *exp = p_expr();
-				if (!exp) // todo: throw exception?
-				{
-					delete type; delete name;
-					restore();
-					return nullptr;
-				}
-				expect(';');
-				stmt = new VarDecl(type, name exp);
-			}
-			else if (accept(Token::LPAREN))
-			{
-				// have function decl and/or def
-				while (true)
-				{
-					Ident *arg_type = new Ident(text());
-					if (accept(Token::IDENT)) // argument type
-					{
-
-						expect(Token::IDENT);
-					}
-					else
-					{
-						delete arg_type;
-						break;
-					}
-				}
-				accept(';'); // allow ; after
-			}
-			else
-			{
-				// have a var decl without init assignment
-				expect(';'); // require ; after
-				stmt = new VarDecl(type, name);
-			}
-		}
-		else
-		{
-			delete type;
-			restore();
-		}
-	}
-	return stmt;
-}
-
-Stmt* p_func_decl()
-{
-	Stmt *stmt = nullptr;
-	if (last == Token::IDENT)
-	{
-		Ident *type = new Ident(text());
-		save();
-		if (accept(Token::IDENT))
-		{
-			Ident *name = new Ident(text());
-			if (expect
-		}
-	}
-}
-
-Stmt* p_stmt()
-{
-	Stmt *stmt = nullptr;
-#if 0
-	if ((stmt = p_var_decl()))
-		return stmt;
-	if ((stmt = p_import()))
-		return stmt;
-	if ((stmt = p_compound_stmt()))
-		return stmt;
-	// ...
-#endif
-	return stmt;
-}
-
-#endif // #if 0
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -529,25 +534,19 @@ SyntaxError::SyntaxError(const char *what,
 
 void format_exception(std::ostream& stream, SyntaxError& err)
 {
-	stream << "error: " << err.fn << ":";
-#if 0
-	if (err.pos_start != err.pos_end)
-		stream << err.pos_start << "-" << err.pos_end << ":";
-	else
-		stream << err.pos_start << ":";
-#endif
+	stream << "\x1B[31merror\x1B[0m:\x1B[33m" << err.fn << "\x1B[0m:";
 	if (err.line_start != err.line_end)
-		stream << err.line_start << "-" << err.line_end << ":";
+		stream << "\x1B[35m" << err.line_start + 1 << "-" << err.line_end + 1 << "\x1B[0m:";
 	else
-		stream << err.line_start << ":";
+		stream << "\x1B[35m" << err.line_start + 1 << "\x1B[0m:";
 	if (err.col_start != err.col_end)
-		stream << err.col_start << "-" << err.col_end << ": ";
+		stream << "\x1B[36m" << err.col_start << "-" << err.col_end;
 	else
-		stream << err.col_start;
+		stream << "\x1B[36m" << err.col_start;
 	if (!err.msg.empty())
-		stream << ": " << err.msg << "\n";
+		stream << "\x1B[0m: " << err.msg << "\n";
 	else
-		stream << "\n";
+		stream << "\x1B[0m\n";
 }
 
 } // namespace Soda

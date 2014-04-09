@@ -1,6 +1,6 @@
+#include "sodainc.h" // pch
 #include "lexer.h"
 #include <sstream>
-#include <iostream>
 #include <cassert>
 
 using namespace Soda;

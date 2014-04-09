@@ -1,6 +1,8 @@
+#include "sodainc.h" // pch
 #include "token.h"
-#include <utf8/utf8.h>
+#include <ostream>
 #include <sstream>
+#include <utf8/utf8.h>
 
 std::ostream& operator<<(std::ostream& stream, const std::u32string& str)
 {
@@ -91,6 +93,9 @@ namespace std {
 			TS_CASE(VAR);
 			TS_CASE(FUN);
 			TS_CASE(RETURN);
+			TS_CASE(IMPORT);
+			TS_CASE(FROM);
+			TS_CASE(CLASS);
 		}
 		std::stringstream ss;
 		ss << "Unknown Token (" << (int) kind << ")";

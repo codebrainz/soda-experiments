@@ -1,3 +1,4 @@
+#include "sodainc.h" // pch
 #include "lexer.h"
 #include "utils.h"
 #include <iostream>
@@ -94,6 +95,12 @@ Token::Kind next()
 			token.kind = Token::ALIAS;
 		else if (token.text == U"return")
 			token.kind = Token::RETURN;
+		else if (token.text == U"import")
+			token.kind = Token::IMPORT;
+		else if (token.text == U"from")
+			token.kind = Token::FROM;
+		else if (token.text == U"class")
+			token.kind = Token::CLASS;
 		else
 			token.kind = Token::IDENT;
 	}

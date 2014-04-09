@@ -1,12 +1,8 @@
+#include "sodainc.h" // pch
 #include "input.h"
 #include "utils.h"
-#include <iostream>
-#include <string>
-#include <vector>
-#include <uchar.h>
 #include <utf8/utf8.h>
 
-#include <cassert>
 namespace Soda
 {
 

@@ -1,3 +1,5 @@
+import blah;
+import blah import blah
 
 alias somealias1 = anothername1
 alias somealias2 = anothername2;
@@ -7,20 +9,26 @@ var anotherglobalvar1 = 0.33 + "123";
 
 fun do_stuff_here()
 {
-	var i = 2+3
-	return i + 2;
+    var i = 2+3
+    return i + 123123123;
 };
 
 /* Multi-line comment */
 
-fun another_do_stuff(a, b, c=22/3)
+fun another_do_stuff(a=1, b, c=22/3)
 {
-	return a * b / c
+    return 6/2+3*12;
 }
+
+// foo
 
 fun main(args)
 {
-
-	return 0;
+    var foo =1;
+    return foo;
 }
 
+class Foo
+{
+    fun Foo(i=1) { return 1; }
+};

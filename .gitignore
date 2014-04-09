@@ -1,6 +1,9 @@
 *.[ao]
+*.so
 /sodac
-/libsoda.so
 /test_input
 /test_lexer
 /test_parser
+/makefile.deps
+/makefile.*flags
+/sodainc.gch

@@ -1,3 +1,4 @@
+#include "sodainc.h" // pch
 #include "lexer.h"
 #include <iostream>
 

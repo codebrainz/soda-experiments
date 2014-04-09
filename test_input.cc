@@ -1,7 +1,7 @@
+#include "sodainc.h" // pch
 #include "input.h"
 #include <sstream>
 #include <cassert>
-#include <iostream>
 
 using namespace Soda;
 

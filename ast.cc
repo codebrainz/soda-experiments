@@ -1,7 +1,7 @@
+#include "sodainc.h" // pch
 #include "ast.h"
+#include "parser.h"
 #include <algorithm>
-#include <iostream>
-#include <vector>
 #include <utf8/utf8.h>
 
 namespace Soda
@@ -58,8 +58,9 @@ Integer::Integer(std::u32string valstr, int base)
 	size_t pos=0;
 	std::string u8val = utf8_encode(valstr);
 	//std::cout << "UTF8 Value: " << u8val << std::endl;
-	value = stoull(u8val, &pos, base);
-	if (pos != u8val.size()) { /* error */ }
+	value = std::stoull(u8val, &pos, base);
+	if (pos != u8val.size())
+		throw std::invalid_argument("std::stoull");
 }
 
 Float::Float(std::u32string valstr)
@@ -67,8 +68,9 @@ Float::Float(std::u32string valstr)
 {
 	size_t pos=0;
 	std::string u8val = utf8_encode(valstr);
-	value = stold(u8val, &pos);
-	if (pos != u8val.size()) { /* error */ }
+	value = std::stold(u8val, &pos);
+	if (pos != u8val.size())
+		throw std::invalid_argument("std::stold");
 }
 
 void Ident::dump(std::ostream& stream)
