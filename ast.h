@@ -6,6 +6,7 @@
 #include <memory>
 #include <vector>
 #include <ostream>
+#include <iostream>
 
 namespace Soda
 {
@@ -20,6 +21,7 @@ struct Node
 	Range position, line, column;
 
 	Node();
+	virtual ~Node() {}
 	void tag_start(Token& tok);
 	void tag_start(size_t pos, size_t line_, size_t col);
 	void tag_end(Token& tok);
@@ -55,20 +57,14 @@ struct Ident : public Expr
 {
 	std::u32string name;
 	Ident(std::u32string name) : name(name) {}
-	virtual void dump(std::ostream& stream)
-	{
-		stream << "<Ident name=\"" << "u32encoded" << "\"/>";
-	}
+	virtual void dump(std::ostream& stream);
 };
 
 struct String : public Expr
 {
 	std::u32string value;
 	String(std::u32string value) : value(value) {}
-	virtual void dump(std::ostream& stream)
-	{
-		stream << "<String>" << "u32encoded" << "\"/>";
-	}
+	virtual void dump(std::ostream& stream);
 };
 
 typedef std::shared_ptr<Expr> ExprPtr;
@@ -76,6 +72,9 @@ typedef std::shared_ptr<Stmt> StmtPtr;
 
 typedef std::vector<ExprPtr> ExprList;
 typedef std::vector<StmtPtr> StmtList;
+
+typedef std::shared_ptr<Ident> IdentPtr;
+//typedef std::vector<IdentPtr> IdentList;
 
 struct Block : public Expr
 {
@@ -104,15 +103,124 @@ struct TU : public Block
 
 struct VarDecl : public Stmt
 {
-	Ident type, name;
-	VarDecl(std::u32string type, std::u32string name)
-		: type(type), name(name) {}
+	IdentPtr type, name;
+	ExprPtr assign;
+	VarDecl(Ident *type, Ident *name, Expr *assign=nullptr)
+		: type(type), name(name), assign(assign) {}
 	virtual void dump(std::ostream& stream)
 	{
 		stream << "<VarDecl>";
-		type.dump(stream);
-		name.dump(stream);
+		//type->dump(stream);
+		name->dump(stream);
+		if (assign)
+		{
+			stream << "<AssignExpr>";
+			assign->dump(stream);
+			stream << "</AssignExpr>";
+		}
 		stream << "</VarDecl>";
+	}
+};
+
+struct StructDecl : public Stmt
+{
+	IdentPtr name;
+	StmtList members;
+	StructDecl(Ident *name, const StmtList& members)
+		: name(name), members(members) {}
+	virtual void dump(std::ostream& stream)
+	{
+		stream << "<StructDecl>";
+		name->dump(stream);
+		if (members.size() > 0)
+		{
+			stream << "<Members>";
+			for (auto &stmt : members)
+				stmt->dump(stream);
+			stream << "</Members>";
+		}
+		stream << "</StructDecl>";
+	}
+};
+
+struct Argument : public Stmt
+{
+	IdentPtr name;
+	ExprPtr value;
+	Argument(Ident *name, Expr *value) : name(name), value(value) {}
+	virtual void dump(std::ostream& stream)
+	{
+		stream << "<Argument name=\"" << name->name << "\"";
+		if (value)
+		{
+			stream << ">";
+			value->dump(stream);
+			stream << "</Argument>";
+		}
+		else
+			stream << "/>";
+	}
+};
+
+struct StrLit : public Expr
+{
+	std::u32string text;
+	StrLit(std::u32string text) : text(text) {}
+	virtual void dump(std::ostream& stream)
+	{
+		if (!text.empty())
+			stream << "<StrLit>" << text << "</StrLit>";
+		else
+			stream << "<StrLit/>";
+	}
+};
+
+struct ReturnStmt : public Stmt
+{
+	ExprPtr expr;
+	ReturnStmt(Expr *expr) : expr(expr) {}
+	virtual void dump(std::ostream& stream)
+	{
+		stream << "<ReturnStmt";
+		if (expr)
+		{
+			stream << ">";
+			expr->dump(stream);
+			stream << "</ReturnStmt>";
+		}
+		else
+			stream << "/>";
+	}
+};
+
+struct FuncDef : public Stmt
+{
+	IdentPtr type, name;
+	StmtList args;
+	StmtList stmts;
+	FuncDef(Ident *type, Ident *name, const StmtList& args,
+	        const StmtList& stmts)
+		: type(type), name(name), args(args), stmts(stmts) {}
+	virtual void dump(std::ostream& stream)
+	{
+		stream << "<FuncDef>";
+		//type->dump(stream);
+		name->dump(stream);
+		if (args.size() > 0)
+		{
+			stream << "<Args>";
+			for (auto &stmt : args)
+				stmt->dump(stream);
+			stream << "</Args>";
+		}
+		if (stmts.size() > 0)
+		{
+			stream << "<Stmts>";
+			for (auto &stmt : stmts)
+				stmt->dump(stream);
+			stream << "</Stmts>";
+		}
+		stream << "</FuncDef>";
 	}
 };
 
@@ -140,6 +248,20 @@ struct BinOp : public Expr
 		lhs->dump(stream);
 		rhs->dump(stream);
 		stream << "</BinOp>";
+	}
+};
+
+struct Alias : public Stmt
+{
+	IdentPtr type;
+	IdentPtr alias;
+	Alias(Ident *type, Ident *alias) : type(type), alias(alias) {}
+	virtual void dump(std::ostream& stream)
+	{
+		stream << "<Alias>";
+		type->dump(stream);
+		alias->dump(stream);
+		stream << "</Alias>";
 	}
 };
 

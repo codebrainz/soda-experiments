@@ -78,6 +78,19 @@ namespace std {
 			TS_CASE(GE_OP);
 			TS_CASE(NE_OP);
 			TS_CASE(EQ_OP);
+			TS_CASE(CONST);
+			TS_CASE(STATIC);
+			TS_CASE(PUBLIC);
+			TS_CASE(PRIVATE);
+			TS_CASE(PROTECTED);
+			TS_CASE(INTERNAL);
+			TS_CASE(STRUCT);
+			TS_CASE(ENUM);
+			TS_CASE(UNION);
+			TS_CASE(ALIAS);
+			TS_CASE(VAR);
+			TS_CASE(FUN);
+			TS_CASE(RETURN);
 		}
 		std::stringstream ss;
 		ss << "Unknown Token (" << (int) kind << ")";

@@ -1,0 +1,26 @@
+
+alias somealias1 = anothername1
+alias somealias2 = anothername2;
+
+var someglobalvar1 = 123 + 0xFF;
+var anotherglobalvar1 = 0.33 + "123";
+
+fun do_stuff_here()
+{
+	var i = 2+3
+	return i + 2;
+};
+
+/* Multi-line comment */
+
+fun another_do_stuff(a, b, c=22/3)
+{
+	return a * b / c
+}
+
+fun main(args)
+{
+
+	return 0;
+}
+

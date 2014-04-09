@@ -3,7 +3,6 @@
 
 #include "input.h"
 #include "token.h"
-#include <string>
 #include <ostream>
 
 namespace Soda
@@ -14,16 +13,13 @@ class Lexer
 public:
 	Token token;
 	Lexer(std::istream& stream);
+	~Lexer();
 	Token::Kind next();
-
-	std::istream& input_stream() { return input.input_stream(); }
-
 private:
-	Input input;
-	void token_start();
-	void token_end();
-	bool is_whitespace(Input::char_type ch);
-	void skip(Input::char_type ch);
+	struct LexImpl;
+	LexImpl *impl;
+	Lexer(const Lexer&);
+	Lexer& operator=(const Lexer&);
 };
 
 } // namespace Soda

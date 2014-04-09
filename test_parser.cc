@@ -1,14 +1,24 @@
 #include "parser.h"
 #include <iostream>
+#include <fstream>
 #include <cassert>
 
 using namespace Soda;
 
 int main()
 {
-	TU tu("<stream>");
-	parse(tu, "1+2*3+4/5*(6+7)*8");
-	assert(tu.stmts.size() > 0);
-	tu.dump(std::cout);
+	TU tu("test.soda");
+	std::ifstream stream("test.soda");
+	try
+	{
+		parse(tu, stream);
+		assert(tu.stmts.size() > 0);
+		tu.dump(std::cout);
+	}
+	catch (SyntaxError& err)
+	{
+		format_exception(std::cerr, err);
+		return 1;
+	}
 	return 0;
 }

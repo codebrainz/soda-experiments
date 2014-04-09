@@ -3,11 +3,8 @@ ast.o: ast.cc ast.h token.h utf8/utf8.h utf8/utf8/checked.h \
 input.o: input.cc input.h utils.h utf8/utf8.h utf8/utf8/checked.h \
  utf8/utf8/core.h utf8/utf8/unchecked.h
 lexer.o: lexer.cc lexer.h input.h token.h utils.h
-main.o: main.cc lexer.h input.h token.h
 parser.o: parser.cc parser.h ast.h token.h lexer.h input.h
-test_input.o: test_input.cc input.h
-test_lexer.o: test_lexer.cc lexer.h input.h token.h
-test_parser.o: test_parser.cc parser.h ast.h token.h
 token.o: token.cc token.h utf8/utf8.h utf8/utf8/checked.h \
  utf8/utf8/core.h utf8/utf8/unchecked.h
 utils.o: utils.cc utils.h
+main.o: main.cc lexer.h input.h token.h

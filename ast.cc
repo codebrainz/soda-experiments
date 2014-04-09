@@ -71,4 +71,15 @@ Float::Float(std::u32string valstr)
 	if (pos != u8val.size()) { /* error */ }
 }
 
+void Ident::dump(std::ostream& stream)
+{
+	stream << "<Ident name=\"" << utf8_encode(name) << "\"/>";
+}
+
+
+void String::dump(std::ostream& stream)
+{
+	stream << "<String>" << utf8_encode(value) << "\"/>";
+}
+
 } // namespace Soda

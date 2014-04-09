@@ -75,6 +75,21 @@ struct Token
 		GE_OP,
 		NE_OP,
 		EQ_OP,
+
+		CONST=700,
+		STATIC,
+		PUBLIC,
+		PRIVATE,
+		PROTECTED,
+		INTERNAL,
+
+		STRUCT=100,
+		ENUM,
+		UNION,
+		ALIAS,
+		VAR,
+		FUN,
+		RETURN,
 	};
 
 	struct Range {
