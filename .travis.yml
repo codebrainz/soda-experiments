@@ -2,4 +2,4 @@ language: cpp
 compiler:
   - gcc
   - clang
-script: make check V=1 CXXFLAGS="-Wall -Wextra -Wno-unused-function -Werror -NDEBUG=1"
+script: make check V=1 CXXFLAGS="-Wall -Wextra -Wno-unused-function -Werror -DNDEBUG=1"
