@@ -12,7 +12,7 @@ else
 	V_PCH   = @echo "  [`tput setaf 5`PCH`tput sgr0`]   `tput bold`$@`tput sgr0`" && $(CXX) -x c++-header -g
 endif
 
-SODA_CXXFLAGS = $(CXXFLAGS) -std=c++11 -Wall -Werror -I.
+SODA_CXXFLAGS = $(CXXFLAGS) -std=c++0x -Wall -Werror -I.
 SODA_LIBS = $(LDFLAGS)
 
 ifdef NDEBUG
