@@ -284,7 +284,7 @@ Stmt *p_class_def()
 }
 
 // if_stmt ::= IF '(' expr ')'
-//             { ELSE IF '(' expr ')' '{' local_stmt_list '}' }
+//             { (ELIF | ELSE IF) '(' expr ')' '{' local_stmt_list '}' }
 //             [ ELSE '{' local_stmt_list '}' ] .
 Stmt *p_if_stmt()
 {
