@@ -36,12 +36,6 @@ private:
 
 void format_exception(std::ostream& stream, SyntaxError& err);
 
-class ParseError : public std::runtime_error
-{
-public:
-	ParseError(const char *what_="parse error") : std::runtime_error(what_) {}
-};
-
 // Parse UTF-8 stream
 void parse(TU& tu, std::istream& stream);
 

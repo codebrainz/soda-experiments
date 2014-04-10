@@ -7,6 +7,7 @@
 #include <vector>
 #include <ostream>
 #include <iostream>
+#include <cassert>
 
 namespace Soda
 {
@@ -28,6 +29,29 @@ struct Node
 	void tag_end(size_t pos, size_t line_, size_t col);
 
 	virtual void dump(std::ostream& stream) = 0;
+};
+
+template< typename T >
+class AstNode
+{
+public:
+	AstNode(T* node_ptr) : node(node_ptr) {}
+	AstNode() { node = new T; }
+	~AstNode() { delete node; }
+	T* get() const { return node; }
+	void clear() { node = nullptr; }
+	T* steal() { T* n = node; node = nullptr; return n; }
+	T* operator->() { return node; }
+	T& operator*() { return *node; }
+	bool operator!() { return (node == nullptr); }
+	operator bool() { return (node != nullptr); }
+	AstNode& operator=(T* rhs)
+	{
+		delete node;
+		node = rhs;
+	}
+private:
+	T *node;
 };
 
 struct Expr : public Node {};
@@ -56,7 +80,7 @@ struct Float : public Expr
 struct Ident : public Expr
 {
 	std::u32string name;
-	Ident(std::u32string name) : name(name) {}
+	Ident(std::u32string name=U"") : name(name) {}
 	virtual void dump(std::ostream& stream);
 };
 
@@ -105,12 +129,24 @@ struct VarDecl : public Stmt
 {
 	IdentPtr type, name;
 	ExprPtr assign;
-	VarDecl(Ident *type, Ident *name, Expr *assign=nullptr)
-		: type(type), name(name), assign(assign) {}
+
+	static VarDecl* create(AstNode<Ident>& name, AstNode<Expr>& assign)
+	{
+		VarDecl* self = new VarDecl(name.get(), assign.get());
+		name.clear(); assign.clear();
+		return self;
+	}
+
+	static VarDecl* create(AstNode<Ident>& name)
+	{
+		VarDecl* self = new VarDecl(name.get());
+		name.clear();
+		return self;
+	}
+
 	virtual void dump(std::ostream& stream)
 	{
 		stream << "<VarDecl>";
-		//type->dump(stream);
 		name->dump(stream);
 		if (assign)
 		{
@@ -120,6 +156,10 @@ struct VarDecl : public Stmt
 		}
 		stream << "</VarDecl>";
 	}
+
+private:
+	VarDecl(Ident *name, Expr *assign=nullptr)
+		: name(name), assign(assign) {}
 };
 
 struct StructDecl : public Stmt
@@ -147,19 +187,41 @@ struct Argument : public Stmt
 {
 	IdentPtr name;
 	ExprPtr value;
-	Argument(Ident *name, Expr *value) : name(name), value(value) {}
+
+	static Argument* create(AstNode<Ident>& name, AstNode<Expr>& value)
+	{
+		Argument* self = new Argument(name.get(), value.get());
+		name.clear(); value.clear();
+		return self;
+	}
+
+	static Argument* create(AstNode<Ident>& name)
+	{
+		Argument* self = new Argument(name.get());
+		name.clear();
+		return self;
+	}
+
 	virtual void dump(std::ostream& stream)
 	{
-		stream << "<Argument name=\"" << name->name << "\"";
-		if (value)
+		stream << "<Argument";
+		if (name || value)
 		{
-			stream << ">";
-			value->dump(stream);
-			stream << "</Argument>";
+			if (name)
+				stream << " name=\"" << name->name << "\"";
+			if (value)
+			{
+				stream << ">";
+				value->dump(stream);
+				stream << "</Argument>";
+			}
+			else
+				stream << "/>";
 		}
-		else
-			stream << "/>";
 	}
+
+private:
+	Argument(Ident *name, Expr *value=nullptr) : name(name), value(value) {}
 };
 
 struct StrLit : public Expr
@@ -178,7 +240,14 @@ struct StrLit : public Expr
 struct ReturnStmt : public Stmt
 {
 	ExprPtr expr;
-	ReturnStmt(Expr *expr) : expr(expr) {}
+
+	static ReturnStmt* create(AstNode<Expr>& expr)
+	{
+		ReturnStmt* self = new ReturnStmt(expr.get());
+		expr.clear();
+		return self;
+	}
+
 	virtual void dump(std::ostream& stream)
 	{
 		stream << "<ReturnStmt";
@@ -191,16 +260,25 @@ struct ReturnStmt : public Stmt
 		else
 			stream << "/>";
 	}
+
+private:
+	ReturnStmt(Expr *expr) : expr(expr) {}
 };
 
 struct FuncDef : public Stmt
 {
 	IdentPtr type, name;
-	StmtList args;
-	StmtList stmts;
-	FuncDef(Ident *type, Ident *name, const StmtList& args,
-	        const StmtList& stmts)
-		: type(type), name(name), args(args), stmts(stmts) {}
+	StmtList args, stmts;
+
+	static FuncDef* create(AstNode<Ident>& name, StmtList& args, StmtList& stmts)
+	{
+		FuncDef* self = new FuncDef(name.get());
+		name.clear();
+		self->args.swap(args);
+		self->stmts.swap(stmts);
+		return self;
+	}
+
 	virtual void dump(std::ostream& stream)
 	{
 		stream << "<FuncDef>";
@@ -222,6 +300,9 @@ struct FuncDef : public Stmt
 		}
 		stream << "</FuncDef>";
 	}
+
+private:
+	FuncDef(Ident *name) : name(name) {}
 };
 
 struct ExprStmt : public Stmt
@@ -253,36 +334,73 @@ struct BinOp : public Expr
 
 struct Alias : public Stmt
 {
-	IdentPtr type;
-	IdentPtr alias;
-	Alias(Ident *type, Ident *alias) : type(type), alias(alias) {}
+	IdentPtr type, alias;
+
+	static Alias* create(AstNode<Ident>& type, AstNode<Ident>& alias)
+	{
+		Alias* self = new Alias(type.get(), alias.get());
+		type.clear(); alias.clear();
+		return self;
+	}
+
 	virtual void dump(std::ostream& stream)
 	{
-		stream << "<Alias>";
-		type->dump(stream);
-		alias->dump(stream);
-		stream << "</Alias>";
+		stream << "<Alias";
+		if (type || alias)
+		{
+			stream << ">";
+			if (type)
+				type->dump(stream);
+			if (alias)
+				alias->dump(stream);
+			stream << "</Alias>";
+		}
+		else
+			stream << "/>";
 	}
+
+private:
+	Alias(Ident *type, Ident *alias) : type(type), alias(alias) {}
 };
 
 struct Import : public Stmt
 {
 	IdentPtr ident;
-	Import(Ident *ident) : ident(ident) {}
+
+	static Import* create(AstNode<Ident>& ident)
+	{
+		Import *self = new Import(ident.get());
+		ident.clear();
+		return self;
+	}
+
 	virtual void dump(std::ostream& stream)
 	{
 		stream << "<Import name=\"" << ident->name << "\"/>";
 	}
+
+private:
+	Import(Ident *ident) : ident(ident) {}
 };
 
 struct ClassDef : public Stmt
 {
 	IdentPtr name;
 	StmtList stmts;
-	ClassDef(Ident *name, const StmtList& stmts) : name(name), stmts(stmts) {}
+
+	static ClassDef* create(AstNode<Ident>& name, StmtList& stmts)
+	{
+		ClassDef* self = new ClassDef(name.get());
+		name.clear();
+		self->stmts.swap(stmts);
+		return self;
+	}
+
 	virtual void dump(std::ostream& stream)
 	{
-		stream << "<ClassDef name=\"" << name->name << "\"";
+		stream << "<ClassDef";
+		if (name)
+			stream << " name=\"" << name->name << "\"";
 		if (stmts.size() > 0)
 		{
 			stream << ">";
@@ -293,19 +411,35 @@ struct ClassDef : public Stmt
 		else
 			stream << "/>";
 	}
+
+private:
+	ClassDef(Ident *name) : name(name) {}
 };
 
 struct IfStmt : public Stmt
 {
 	ExprPtr if_expr;
-	StmtList if_stmts;
-	StmtList elifs; // sequence of IfStmts
-	StmtList else_stmts;
-	IfStmt(Expr *if_expr, const StmtList& if_stmts,
-	       const StmtList& elifs=StmtList(),
-	       const StmtList& else_stmts=StmtList())
-		: if_expr(if_expr), if_stmts(if_stmts), elifs(elifs),
-		  else_stmts(else_stmts) {}
+	StmtList if_stmts, elseif_stmts, else_stmts;
+
+	static IfStmt* create(AstNode<Expr>& if_expr, StmtList& if_stmts,
+	                      StmtList& elseif_stmts, StmtList& else_stmts)
+	{
+		IfStmt* self = new IfStmt(if_expr.get());
+		if_expr.clear();
+		self->if_stmts.swap(if_stmts);
+		self->elseif_stmts.swap(elseif_stmts);
+		self->else_stmts.swap(else_stmts);
+		return self;
+	}
+
+	static IfStmt* create(AstNode<Expr>& expr, StmtList& stmts)
+	{
+		IfStmt* self = new IfStmt(expr.get());
+		expr.clear();
+		self->if_stmts.swap(stmts);
+		return self;
+	}
+
 	virtual void dump(std::ostream& stream)
 	{
 		stream << "<IfStmt>";
@@ -317,11 +451,11 @@ struct IfStmt : public Stmt
 				stmt->dump(stream);
 			stream << "</Stmts>";
 		}
-		if (elifs.size() > 0)
+		if (elseif_stmts.size() > 0)
 		{
 			stream << "<!-- Elifs -->";
-			for (auto &elif : elifs)
-				elif->dump(stream);
+			for (auto &stmt : elseif_stmts)
+				stmt->dump(stream);
 		}
 		if (else_stmts.size() > 0)
 		{
@@ -332,6 +466,9 @@ struct IfStmt : public Stmt
 		}
 		stream << "</IfStmt>";
 	}
+
+private:
+	IfStmt(Expr *if_expr) : if_expr(if_expr) {}
 };
 
 } // namespace Soda
