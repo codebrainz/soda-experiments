@@ -96,6 +96,9 @@ namespace std {
 			TS_CASE(IMPORT);
 			TS_CASE(FROM);
 			TS_CASE(CLASS);
+			TS_CASE(IF);
+			TS_CASE(ELIF);
+			TS_CASE(ELSE);
 		}
 		std::stringstream ss;
 		ss << "Unknown Token (" << (int) kind << ")";

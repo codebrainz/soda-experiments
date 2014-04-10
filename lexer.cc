@@ -79,7 +79,13 @@ Token::Kind next()
 		advance(input.last);
 		while (is_alnum(input.last) || input.last == '_')
 			advance(input.last);
-		if (token.text == U"fun")
+		if (token.text == U"if")
+			token.kind = Token::IF;
+		else if (token.text == U"elif")
+			token.kind = Token::ELIF;
+		else if (token.text == U"else")
+			token.kind = Token::ELSE;
+		else if (token.text == U"fun")
 			token.kind = Token::FUN;
 		else if (token.text == U"var")
 			token.kind = Token::VAR;

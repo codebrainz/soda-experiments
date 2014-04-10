@@ -295,6 +295,45 @@ struct ClassDef : public Stmt
 	}
 };
 
+struct IfStmt : public Stmt
+{
+	ExprPtr if_expr;
+	StmtList if_stmts;
+	StmtList elifs; // sequence of IfStmts
+	StmtList else_stmts;
+	IfStmt(Expr *if_expr, const StmtList& if_stmts,
+	       const StmtList& elifs=StmtList(),
+	       const StmtList& else_stmts=StmtList())
+		: if_expr(if_expr), if_stmts(if_stmts), elifs(elifs),
+		  else_stmts(else_stmts) {}
+	virtual void dump(std::ostream& stream)
+	{
+		stream << "<IfStmt>";
+		if_expr->dump(stream);
+		if (if_stmts.size() > 0)
+		{
+			stream << "<Stmts>";
+			for (auto &stmt : if_stmts)
+				stmt->dump(stream);
+			stream << "</Stmts>";
+		}
+		if (elifs.size() > 0)
+		{
+			stream << "<!-- Elifs -->";
+			for (auto &elif : elifs)
+				elif->dump(stream);
+		}
+		if (else_stmts.size() > 0)
+		{
+			stream << "<Else>";
+			for (auto &stmt : else_stmts)
+				stmt->dump(stream);
+			stream << "</Else>";
+		}
+		stream << "</IfStmt>";
+	}
+};
+
 } // namespace Soda
 
 #endif // SODA_AST_H

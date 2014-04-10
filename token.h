@@ -93,6 +93,9 @@ struct Token
 		IMPORT,
 		FROM,
 		CLASS,
+		IF,
+		ELIF,
+		ELSE,
 	};
 
 	struct Range {

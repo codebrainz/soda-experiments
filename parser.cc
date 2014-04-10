@@ -283,6 +283,56 @@ Stmt *p_class_def()
 	return stmt;
 }
 
+// if_stmt ::= IF '(' expr ')'
+//             { ELSE IF '(' expr ')' '{' local_stmt_list '}' }
+//             [ ELSE '{' local_stmt_list '}' ] .
+Stmt *p_if_stmt()
+{
+	Stmt *stmt = nullptr;
+	if (last == Token::IF)
+	{
+		next();
+
+		expect('(');
+		Expr *if_expr = p_expr();
+		expect(')');
+
+		expect('{');
+		StmtList if_stmts = p_local_stmt_list();
+		expect('}');
+
+		StmtList elseif_stmts; // IfStmt sequence
+		StmtList else_stmts;
+
+		while (last == Token::ELSE || last == Token::ELIF)
+		{
+			bool is_elif = (last == Token::ELIF);
+			next();
+			if (is_elif || accept(Token::IF))
+			{
+				expect('(');
+				Expr *elseif_expr = p_expr();
+				expect(')');
+				expect('{');
+				StmtList elseif_body_stmts = p_local_stmt_list();
+				expect('}');
+				elseif_stmts.emplace_back(new IfStmt(elseif_expr, elseif_body_stmts));
+				continue;
+			}
+			else
+			{
+				expect('{');
+				else_stmts = p_local_stmt_list();
+				expect('}');
+				break;
+			}
+		}
+
+		stmt = new IfStmt(if_expr, if_stmts, elseif_stmts, else_stmts);
+	}
+	return stmt;
+}
+
 // return_stmt ::= RETURN [ expr ] [';'] .
 Stmt *p_return_stmt()
 {
@@ -302,6 +352,7 @@ Stmt *p_return_stmt()
 //             | func_def
 //             | return_stmt
 //             | class_def
+//             | if_stmt
 //             .
 Stmt *p_local_stmt()
 {
@@ -317,6 +368,8 @@ Stmt *p_local_stmt()
 	else if ((stmt = p_return_stmt()))
 		return stmt;
 	else if ((stmt = p_class_def()))
+		return stmt;
+	else if ((stmt = p_if_stmt()))
 		return stmt;
 	return stmt;
 }
@@ -349,7 +402,7 @@ StmtList p_stmt_list()
 	return lst;
 }
 
-// number_expr: *_ICONST | FCONST
+// number_expr ::= ??INTEGER_CONSTANTS?? | FCONST .
 Expr *p_number_expr()
 {
 	Expr *exp;
@@ -392,7 +445,7 @@ Expr *p_number_expr()
 	return exp;
 }
 
-// paren_expr: '(' expr ')'
+// paren_expr ::= '(' expr ')' .
 Expr *p_paren_expr()
 {
 	next();
@@ -403,7 +456,7 @@ Expr *p_paren_expr()
 	return exp;
 }
 
-// ident_expr: IDENT
+// ident_expr ::= IDENT .
 Expr *p_ident_expr()
 {
 	Expr *exp = new Ident(text());
@@ -411,7 +464,7 @@ Expr *p_ident_expr()
 	return exp;
 }
 
-// strlit_expr ::= STR_LIT { STR_LIT }
+// strlit_expr ::= STR_LIT { STR_LIT } .
 Expr *p_strlit_expr()
 {
 	Expr *exp = nullptr;
@@ -428,9 +481,7 @@ Expr *p_strlit_expr()
 	return exp;
 }
 
-// primary_expr: ident_expr
-//             | number_expr
-//             | paren_expr
+// primary_expr ::= ident_expr | number_expr | paren_expr .
 Expr *p_primary_expr()
 {
 	switch (last)
@@ -461,7 +512,7 @@ Expr *p_primary_expr()
 	}
 }
 
-// expr: primary_expr bin_op_rhs
+// expr ::= primary_expr bin_op_rhs .
 Expr *p_expr()
 {
 	Expr *lhs = p_primary_expr();
@@ -470,7 +521,7 @@ Expr *p_expr()
 	return p_bin_op_rhs(0, lhs);
 }
 
-// bin_op_rhs: (OPS primary_expr)*
+// bin_op_rhs ::= { ??OPERATORS?? primary_expr } .
 Expr *p_bin_op_rhs(int expr_prec, Expr *lhs)
 {
 	while (true)
