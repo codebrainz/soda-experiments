@@ -3,6 +3,7 @@
 #include "lexer.h"
 #include <deque>
 #include <cassert>
+#include <stack>
 
 namespace Soda
 {
@@ -22,6 +23,7 @@ TU& tu;
 Token::Kind last;
 std::deque<Token> saved_tokens;
 bool saving;
+std::stack<SourceLocation> loc_stack;
 
 Parser(Lexer& lex, TU& tu)
 	: lex(lex), tu(tu), last(lex.next()), saving(false)
@@ -125,16 +127,30 @@ void parse()
 	p_tu(tu);
 }
 
-void loc_start(Node *node)
+void push_loc() noexcept
 {
-	if (node)
-		node->tag_start(lex.token);
+	//std::cerr << "Pushing location" << std::endl;
+	try { loc_stack.emplace(lex.token); }
+	catch (...) {}
 }
 
-void loc_end(Node *node)
+void pop_loc(Node *node=nullptr) noexcept
 {
+	//std::cerr << "Popping location" << std::endl;
 	if (node)
-		node->tag_end(lex.token);
+	{
+		try
+		{
+			node->location = loc_stack.top();
+			loc_stack.pop();
+		}
+		catch (...) {}
+	}
+	else
+	{
+		try { loc_stack.pop(); }
+		catch (...) {}
+	}
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -152,8 +168,7 @@ Stmt *p_import_stmt()
 	if (last == Token::IMPORT)
 	{
 		next();
-		AstNode<Ident> ident(new Ident(text()));
-		expect(Token::IDENT);
+		AstNode<Ident> ident(p_ident_expr());
 		stmt = Import::create(ident);
 	}
 	return stmt;
@@ -165,11 +180,9 @@ Stmt *p_alias()
 	Stmt *stmt = nullptr;
 	if (accept(Token::ALIAS))
 	{
-		AstNode<Ident> type(new Ident(text()));
-		expect(Token::IDENT);
+		AstNode<Ident> type(p_ident_expr());
 		expect('=');
-		AstNode<Ident> alias(new Ident(text()));
-		expect(Token::IDENT);
+		AstNode<Ident> alias(p_ident_expr());
 		stmt = Alias::create(type, alias);
 	}
 	return stmt;
@@ -181,8 +194,7 @@ Stmt *p_var_decl()
 	Stmt *stmt = nullptr;
 	if (accept(Token::VAR))
 	{
-		AstNode<Ident> ident(new Ident(text()));
-		expect(Token::IDENT);
+		AstNode<Ident> ident(p_ident_expr());
 		if (accept('='))
 		{
 			AstNode<Expr> expr(p_expr());
@@ -209,8 +221,7 @@ Stmt *p_func_def()
 	Stmt *stmt = nullptr;
 	if (accept(Token::FUN))
 	{
-		AstNode<Ident> ident(new Ident(text()));
-		expect(Token::IDENT);
+		AstNode<Ident> ident(p_ident_expr());
 		expect('(');
 		StmtList args; p_arg_list(args);
 		expect(')');
@@ -249,8 +260,7 @@ Stmt *p_argument()
 	Stmt *stmt = nullptr;
 	if (last == Token::IDENT)
 	{
-		AstNode<Ident> name(new Ident(text()));
-		next();
+		AstNode<Ident> name(p_ident_expr());
 		if (accept('='))
 		{
 			AstNode<Expr> expr(p_expr());
@@ -276,8 +286,7 @@ Stmt *p_class_def()
 	Stmt *stmt = nullptr;
 	if (accept(Token::CLASS))
 	{
-		AstNode<Ident> name(new Ident(text()));
-		expect(Token::IDENT);
+		AstNode<Ident> name(p_ident_expr());
 		expect('{');
 		StmtList stmts; p_stmt_list(stmts, true);
 		expect('}');
@@ -378,23 +387,46 @@ Stmt *p_return_stmt()
 Stmt *p_stmt(bool top_level=false)
 {
 	Stmt *stmt = nullptr;
+	push_loc();
 	if ((stmt = p_alias()))
+	{
+		pop_loc(stmt);
 		return stmt;
+	}
 	else if ((stmt = p_import_stmt()))
+	{
+		pop_loc(stmt);
 		return stmt;
+	}
 	else if ((stmt = p_var_decl()))
+	{
+		pop_loc(stmt);
 		return stmt;
+	}
 	else if ((stmt = p_func_def()))
+	{
+		pop_loc(stmt);
 		return stmt;
+	}
 	else if ((stmt = p_class_def()))
+	{
+		pop_loc(stmt);
 		return stmt;
+	}
 	else if (!top_level)
 	{
 		if ((stmt = p_return_stmt()))
+		{
+			pop_loc(stmt);
 			return stmt;
+		}
 		else if ((stmt = p_if_stmt()))
+		{
+			pop_loc(stmt);
 			return stmt;
+		}
 	}
+	pop_loc(stmt);
 	return stmt;
 }
 
@@ -481,11 +513,15 @@ Expr *p_paren_expr()
 }
 
 // ident_expr ::= IDENT .
-Expr *p_ident_expr()
+Ident *p_ident_expr()
 {
+	Ident *expr;
+	push_loc();
 	AstNode<Ident> ident(new Ident(text()));
-	next();
-	return ident.steal();
+	expect(Token::IDENT);
+	expr = ident.steal();
+	pop_loc(expr);
+	return expr;
 }
 
 // strlit_expr ::= STR_LIT { STR_LIT } .
@@ -538,11 +574,18 @@ Expr *p_primary_expr()
 // expr ::= primary_expr bin_op_rhs .
 Expr *p_expr()
 {
+	push_loc();
+	push_loc();
 	AstNode<Expr> lhs(p_primary_expr());
 	if (!lhs)
+	{
+		pop_loc();
 		return nullptr;
+	}
+	pop_loc(lhs.get());
 	AstNode<Expr> bin_op(p_bin_op_rhs(0, lhs.get()));
 	lhs.clear();
+	pop_loc(bin_op.get());
 	return bin_op.steal();
 }
 
@@ -557,15 +600,22 @@ Expr *p_bin_op_rhs(int expr_prec, Expr *lhs)
 			return lhs;
 		char32_t op = last;
 		next();
+		push_loc();
 		Expr *rhs = p_primary_expr();
 		if (!rhs)
+		{
+			pop_loc();
 			return nullptr;
+		}
+		pop_loc(rhs);
 		int next_prec = get_prec();
 		if (tok_prec < next_prec)
 		{
+			push_loc();
 			rhs = p_bin_op_rhs(tok_prec + 1, rhs);
 			if (!rhs)
 				return nullptr;
+			pop_loc(rhs);
 		}
 		lhs = new BinOp(op, lhs, rhs);
 	}

@@ -7,35 +7,33 @@
 namespace Soda
 {
 
-Node::Node()
-	: position(0, 0), line(0,0), column(0,0) {}
-
-void Node::tag_start(Token& tok)
+void SourceLocation::start(Token& token)
 {
-	position.start = tok.position.start;
-	line.start = tok.line.start;
-	column.start = tok.column.start;
+	position.start = token.position.start;
+	line.start = token.line.end;
+	column.start = token.column.end;
 }
 
-void Node::tag_start(size_t pos, size_t line_, size_t col)
+void SourceLocation::end(Token& token)
 {
-	position.start = pos;
-	line.start = line_;
-	column.start = col;
+	position.end = token.position.end;
+	line.end = token.line.end;
+	column.end = token.column.end;
 }
 
-void Node::tag_end(Token& tok)
+void SourceLocation::save(Node* node)
 {
-	position.end = tok.position.end;
-	line.end = tok.line.end;
-	column.end = tok.column.end;
+	if (node)
+		node->location = *this;
 }
 
-void Node::tag_end(size_t pos, size_t line_, size_t col)
+void SourceLocation::save(Node* node, Token& token)
 {
-	position.end = pos;
-	line.end = line_;
-	column.end = col;
+	if (node)
+	{
+		end(token);
+		node->location = *this;
+	}
 }
 
 // FIXME: make this good

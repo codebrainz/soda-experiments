@@ -12,22 +12,33 @@
 namespace Soda
 {
 
+struct Node;
+
+struct SourceRange
+{
+	size_t start, end;
+	SourceRange(size_t start=0, size_t end=0) : start(start), end(end) {}
+	size_t length() { return (end - start); }
+};
+
+struct SourceLocation
+{
+	SourceRange position, line, column;
+	SourceLocation() : position(0,0), line(0,0), column(0,0) {}
+	SourceLocation(Token& token) : SourceLocation() { start(token); }
+	SourceLocation(SourceRange position, SourceRange line, SourceRange column)
+		: position(position), line(line), column(column) {}
+	void start(Token& token);
+	void end(Token& token);
+	void save(Node* node);
+	void save(Node* node, Token& token);
+};
+
 struct Node
 {
-	struct Range {
-		size_t start, end;
-		Range(size_t start=0, size_t end=0) : start(start), end(end) {}
-	};
-
-	Range position, line, column;
-
-	Node();
+	SourceLocation location;
+	Node() {}
 	virtual ~Node() {}
-	void tag_start(Token& tok);
-	void tag_start(size_t pos, size_t line_, size_t col);
-	void tag_end(Token& tok);
-	void tag_end(size_t pos, size_t line_, size_t col);
-
 	virtual void dump(std::ostream& stream) = 0;
 };
 
