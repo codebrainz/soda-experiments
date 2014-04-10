@@ -1,4 +1,4 @@
-#!/usr/bin/env make
+#!/usr/bin/make -f
 
 ifeq ($(V),1)
 	V_CXX   = $(CXX) -c
@@ -6,10 +6,10 @@ ifeq ($(V),1)
 	V_DEPS  = $(CXX) -MM
 	V_PCH   = $(CXX) -x c++-header -g
 else
-	V_CXX   = @echo "  [`tput setaf 6`CXX`tput sgr0`]   `tput bold`$@`tput sgr0`" && $(CXX) -c
-	V_CXXLD = @echo "  [`tput setaf 3`CXXLD`tput sgr0`] `tput bold`$@`tput sgr0`" && $(CXX)
-	V_DEPS  = @echo "  [`tput setaf 4`DEPS`tput sgr0`]  `tput bold`$@`tput sgr0`" && $(CXX) -MM
-	V_PCH   = @echo "  [`tput setaf 5`PCH`tput sgr0`]   `tput bold`$@`tput sgr0`" && $(CXX) -x c++-header -g
+	V_CXX   = @echo "  [CXX]   $@" && $(CXX) -c
+	V_CXXLD = @echo "  [CXXLD] $@" && $(CXX)
+	V_DEPS  = @echo "  [DEPS]  $@" && $(CXX) -MM
+	V_PCH   = @echo "  [PCH]   $@" && $(CXX) -x c++-header -g
 endif
 
 SODA_CXXFLAGS = $(CXXFLAGS) -std=c++11 -Wall -Werror -I.
@@ -96,22 +96,22 @@ libsoda.so sodac: makefile.ldflags makefile
 $(LIB_SOURCES) $(SODAC_SOURCES) sodainc.gch: makefile.cflags makefile
 
 help:
-	@echo "`tput setaf 3`=====================================`tput sgr0`" && \
-	echo  "`tput setaf 1` SODA Compiler and Runtime Make File `tput sgr0`" && \
-	echo  "`tput setaf 3`=====================================`tput sgr0`\n" && \
-	echo "Without arguments you get a silent build of `tput smul`compiler and library`tput rmul`:" && \
-	echo "    \``tput bold`make`tput sgr0`'\n" && \
-	echo "Build `tput smul`library only`tput rmul`:" && \
-	echo "    \``tput bold`make libsoda.so`tput sgr0`'\n" && \
-	echo "Build `tput smul`specific source file`tput rmul`:" && \
-	echo "    \``tput bold`make basename_without_extension.o`tput sgr0`'\n" && \
-	echo "Run `tput smul`tests`tput rmul`:" && \
-	echo "    \``tput bold`make check`tput sgr0`'\n" && \
-	echo "Cleanup `tput smul`built files`tput rmul`:" && \
-	echo "    \``tput bold`make clean`tput sgr0`'\n" && \
-	echo "For `tput smul`verbose output`tput rmul` showing full commands:" && \
-	echo "    \``tput bold`make V=1`tput sgr0`'\n" && \
-	echo "Written and maintained by Matthew Brush <`tput setaf 6`mbrush@codebrainz.ca`tput sgr0`>"
+	@echo "=====================================" && \
+	echo  " SODA Compiler and Runtime Make File " && \
+	echo  "=====================================\n" && \
+	echo "Without arguments you get a silent build of compiler and library:" && \
+	echo "    \`make'\n" && \
+	echo "Build library only:" && \
+	echo "    \`make libsoda.so'\n" && \
+	echo "Build specific source file:" && \
+	echo "    \`make basename_without_extension.o'\n" && \
+	echo "Run tests:" && \
+	echo "    \`make check'\n" && \
+	echo "Cleanup built files:" && \
+	echo "    \`make clean'\n" && \
+	echo "For verbose output showing full commands:" && \
+	echo "    \`make V=1'\n" && \
+	echo "Written and maintained by Matthew Brush <mbrush@codebrainz.ca>"
 
 makefile.deps:
 	$(V_DEPS) -MM  $(strip $(SODA_CXXFLAGS)) $(LIB_SOURCES) $(SODAC_SOURCES) > $@
