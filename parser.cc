@@ -129,14 +129,12 @@ void parse()
 
 void push_loc() noexcept
 {
-	//std::cerr << "Pushing location" << std::endl;
 	try { loc_stack.emplace(lex.token); }
 	catch (...) {}
 }
 
 void pop_loc(Node *node=nullptr) noexcept
 {
-	//std::cerr << "Popping location" << std::endl;
 	if (node)
 	{
 		try
@@ -376,6 +374,7 @@ Stmt *p_return_stmt()
 	return stmt;
 }
 
+
 // stmt ::= alias
 //       | import
 //       | var_decl
@@ -386,48 +385,23 @@ Stmt *p_return_stmt()
 //       .
 Stmt *p_stmt(bool top_level=false)
 {
+#define TRY_STMT(name) \
+	do { if ((stmt = p_##name())) { pop_loc(); return stmt; } } while (0)
 	Stmt *stmt = nullptr;
 	push_loc();
-	if ((stmt = p_alias()))
+	TRY_STMT(alias);
+	TRY_STMT(import_stmt);
+	TRY_STMT(var_decl);
+	TRY_STMT(func_def);
+	TRY_STMT(class_def);
+	if (!top_level)
 	{
-		pop_loc(stmt);
-		return stmt;
-	}
-	else if ((stmt = p_import_stmt()))
-	{
-		pop_loc(stmt);
-		return stmt;
-	}
-	else if ((stmt = p_var_decl()))
-	{
-		pop_loc(stmt);
-		return stmt;
-	}
-	else if ((stmt = p_func_def()))
-	{
-		pop_loc(stmt);
-		return stmt;
-	}
-	else if ((stmt = p_class_def()))
-	{
-		pop_loc(stmt);
-		return stmt;
-	}
-	else if (!top_level)
-	{
-		if ((stmt = p_return_stmt()))
-		{
-			pop_loc(stmt);
-			return stmt;
-		}
-		else if ((stmt = p_if_stmt()))
-		{
-			pop_loc(stmt);
-			return stmt;
-		}
+		TRY_STMT(return_stmt);
+		TRY_STMT(if_stmt);
 	}
 	pop_loc(stmt);
 	return stmt;
+#undef TRY_STMT
 }
 
 // stmt_list ::= stmt { stmt } .

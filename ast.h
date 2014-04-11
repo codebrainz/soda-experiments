@@ -25,13 +25,18 @@ struct SourceLocation
 {
 	SourceRange position, line, column;
 	SourceLocation() : position(0,0), line(0,0), column(0,0) {}
-	SourceLocation(Token& token) : SourceLocation() { start(token); }
+	SourceLocation(Token& token)
+		: position(token.position.start, token.position.end),
+		  line(token.line.start, token.line.end),
+		  column(token.column.start, token.column.end) {}
 	SourceLocation(SourceRange position, SourceRange line, SourceRange column)
 		: position(position), line(line), column(column) {}
-	void start(Token& token);
-	void end(Token& token);
-	void save(Node* node);
-	void save(Node* node, Token& token);
+	void dump(std::ostream& stream)
+	{
+		stream /*<< " position=\"" << position.start << "," << position.end << "\""*/
+		       << " line=\""     << line.start     << "," << line.end << "\""
+		       << " column=\""   << column.start   << "," << column.end << "\"";
+	}
 };
 
 struct Node
@@ -74,7 +79,9 @@ struct Integer : public Expr
 	Integer(std::u32string valstr, int base=10);
 	virtual void dump(std::ostream& stream)
 	{
-		stream << "<Integer value=\"" << value << "\"/>";
+		stream << "<Integer value=\"" << value << "\"";
+		location.dump(stream);
+		stream << "/>";
 	}
 };
 
@@ -84,7 +91,9 @@ struct Float : public Expr
 	Float(std::u32string valstr);
 	virtual void dump(std::ostream& stream)
 	{
-		stream << "<Float value=\"" << value << "\"/>";
+		stream << "<Float value=\"" << value << "\"";
+		location.dump(stream);
+		stream << "/>";
 	}
 };
 
@@ -116,7 +125,9 @@ struct Block : public Expr
 	StmtList stmts;
 	virtual void dump(std::ostream& stream)
 	{
-		stream << "<Block>";
+		stream << "<Block";
+		location.dump(stream);
+		stream << ">";
 		for (auto &stmt : stmts)
 			stmt->dump(stream);
 		stream << "</Block>";
@@ -129,7 +140,9 @@ struct TU : public Block
 	TU(std::string fn) : fn(fn) {}
 	virtual void dump(std::ostream& stream)
 	{
-		stream << "<TU href=\"" << fn << "\">";
+		stream << "<TU href=\"" << fn << "\"";
+		location.dump(stream);
+		stream << ">";
 		for (auto &stmt : stmts)
 			stmt->dump(stream);
 		stream << "</TU>";
@@ -157,7 +170,9 @@ struct VarDecl : public Stmt
 
 	virtual void dump(std::ostream& stream)
 	{
-		stream << "<VarDecl>";
+		stream << "<VarDecl";
+		location.dump(stream);
+		stream << ">";
 		name->dump(stream);
 		if (assign)
 		{
@@ -181,7 +196,9 @@ struct StructDecl : public Stmt
 		: name(name), members(members) {}
 	virtual void dump(std::ostream& stream)
 	{
-		stream << "<StructDecl>";
+		stream << "<StructDecl";
+		location.dump(stream);
+		stream << ">";
 		name->dump(stream);
 		if (members.size() > 0)
 		{
@@ -216,6 +233,7 @@ struct Argument : public Stmt
 	virtual void dump(std::ostream& stream)
 	{
 		stream << "<Argument";
+		location.dump(stream);
 		if (name || value)
 		{
 			if (name)
@@ -242,9 +260,17 @@ struct StrLit : public Expr
 	virtual void dump(std::ostream& stream)
 	{
 		if (!text.empty())
-			stream << "<StrLit>" << text << "</StrLit>";
+		{
+			stream << "<StrLit";
+			location.dump(stream);
+			stream << ">" << text << "</StrLit>";
+		}
 		else
-			stream << "<StrLit/>";
+		{
+			stream << "<StrLit";
+			location.dump(stream);
+			stream << "/>";
+		}
 	}
 };
 
@@ -262,6 +288,7 @@ struct ReturnStmt : public Stmt
 	virtual void dump(std::ostream& stream)
 	{
 		stream << "<ReturnStmt";
+		location.dump(stream);
 		if (expr)
 		{
 			stream << ">";
@@ -292,7 +319,9 @@ struct FuncDef : public Stmt
 
 	virtual void dump(std::ostream& stream)
 	{
-		stream << "<FuncDef>";
+		stream << "<FuncDef";
+		location.dump(stream);
+		stream << ">";
 		//type->dump(stream);
 		name->dump(stream);
 		if (args.size() > 0)
@@ -322,7 +351,9 @@ struct ExprStmt : public Stmt
 	ExprStmt(Expr *exp) : exp(exp) {}
 	virtual void dump(std::ostream& stream)
 	{
-		stream << "<ExprStmt>";
+		stream << "<ExprStmt";
+		location.dump(stream);
+		stream << ">";
 		exp->dump(stream);
 		stream << "</ExprStmt>";
 	}
@@ -336,7 +367,9 @@ struct BinOp : public Expr
 		: op(op), lhs(lhs), rhs(rhs) {}
 	virtual void dump(std::ostream& stream)
 	{
-		stream << "<BinOp op=\"" << (char)op << "\">";
+		stream << "<BinOp op=\"" << (char)op << "\"";
+		location.dump(stream);
+		stream << ">";
 		lhs->dump(stream);
 		rhs->dump(stream);
 		stream << "</BinOp>";
@@ -357,6 +390,7 @@ struct Alias : public Stmt
 	virtual void dump(std::ostream& stream)
 	{
 		stream << "<Alias";
+		location.dump(stream);
 		if (type || alias)
 		{
 			stream << ">";
@@ -387,7 +421,9 @@ struct Import : public Stmt
 
 	virtual void dump(std::ostream& stream)
 	{
-		stream << "<Import name=\"" << ident->name << "\"/>";
+		stream << "<Import name=\"" << ident->name << "\"";
+		location.dump(stream);
+		stream << "/>";
 	}
 
 private:
@@ -410,6 +446,7 @@ struct ClassDef : public Stmt
 	virtual void dump(std::ostream& stream)
 	{
 		stream << "<ClassDef";
+		location.dump(stream);
 		if (name)
 			stream << " name=\"" << name->name << "\"";
 		if (stmts.size() > 0)
@@ -453,7 +490,9 @@ struct IfStmt : public Stmt
 
 	virtual void dump(std::ostream& stream)
 	{
-		stream << "<IfStmt>";
+		stream << "<IfStmt";
+		location.dump(stream);
+		stream << ">";
 		if_expr->dump(stream);
 		if (if_stmts.size() > 0)
 		{

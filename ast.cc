@@ -7,35 +7,6 @@
 namespace Soda
 {
 
-void SourceLocation::start(Token& token)
-{
-	position.start = token.position.start;
-	line.start = token.line.end;
-	column.start = token.column.end;
-}
-
-void SourceLocation::end(Token& token)
-{
-	position.end = token.position.end;
-	line.end = token.line.end;
-	column.end = token.column.end;
-}
-
-void SourceLocation::save(Node* node)
-{
-	if (node)
-		node->location = *this;
-}
-
-void SourceLocation::save(Node* node, Token& token)
-{
-	if (node)
-	{
-		end(token);
-		node->location = *this;
-	}
-}
-
 // FIXME: make this good
 std::string utf8_encode(const std::u32string& u32str)
 {
@@ -73,13 +44,17 @@ Float::Float(std::u32string valstr)
 
 void Ident::dump(std::ostream& stream)
 {
-	stream << "<Ident name=\"" << utf8_encode(name) << "\"/>";
+	stream << "<Ident name=\"" << utf8_encode(name) << "\"";
+	location.dump(stream);
+	stream << "/>";
 }
 
 
 void String::dump(std::ostream& stream)
 {
-	stream << "<String>" << utf8_encode(value) << "\"/>";
+	stream << "<String>" << utf8_encode(value) << "\"";
+	location.dump(stream);
+	stream << "/>";
 }
 
 } // namespace Soda
