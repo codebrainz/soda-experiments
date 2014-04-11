@@ -1,8 +1,8 @@
 #ifndef SODA_LEXER_H
 #define SODA_LEXER_H
 
-#include "input.h"
-#include "token.h"
+#include <soda/input.h>
+#include <soda/token.h>
 #include <ostream>
 
 namespace Soda

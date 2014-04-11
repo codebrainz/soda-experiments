@@ -1,5 +1,5 @@
-#include "sodainc.h" // pch
-#include "lexer.h"
+#include <soda/sodainc.h> // pch
+#include <soda/lexer.h>
 #include <sstream>
 #include <cassert>
 

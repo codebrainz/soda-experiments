@@ -1,5 +1,5 @@
-#include "sodainc.h" // pch
-#include "input.h"
+#include <soda/sodainc.h> // pch
+#include <soda/input.h>
 #include <sstream>
 #include <cassert>
 

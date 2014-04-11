@@ -1,5 +1,5 @@
-#include "sodainc.h" // pch
-#include "parser.h"
+#include <soda/sodainc.h> // pch
+#include <soda/parser.h>
 #include <cassert>
 
 using namespace Soda;

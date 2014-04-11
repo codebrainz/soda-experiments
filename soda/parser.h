@@ -1,7 +1,7 @@
 #ifndef SODA_PARSER_H
 #define SODA_PARSER_H
 
-#include "ast.h"
+#include <soda/ast.h>
 #include <istream>
 #include <fstream>
 #include <sstream>

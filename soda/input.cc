@@ -1,6 +1,6 @@
-#include "sodainc.h" // pch
-#include "input.h"
-#include "utils.h"
+#include <soda/sodainc.h> // pch
+#include <soda/input.h>
+#include <soda/utils.h>
 #include <utf8/utf8.h>
 
 namespace Soda

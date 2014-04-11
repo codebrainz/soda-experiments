@@ -1,6 +1,6 @@
-#include "sodainc.h" // pch
-#include "lexer.h"
-#include "utils.h"
+#include <soda/sodainc.h> // pch
+#include <soda/lexer.h>
+#include <soda/utils.h>
 #include <iostream>
 
 namespace Soda

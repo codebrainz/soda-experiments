@@ -1,8 +1,8 @@
-#include "sodainc.h" // pch
-#include "ast.h"
-#include "parser.h"
-#include <algorithm>
+#include <soda/sodainc.h> // pch
+#include <soda/ast.h>
+#include <soda/parser.h>
 #include <utf8/utf8.h>
+#include <algorithm>
 
 namespace Soda
 {
@@ -42,17 +42,9 @@ Float::Float(std::u32string valstr)
 		throw std::invalid_argument("std::stold");
 }
 
-void Ident::dump(std::ostream& stream)
+void IdentImpl::dump(std::ostream& stream)
 {
 	stream << "<Ident name=\"" << utf8_encode(name) << "\"";
-	location.dump(stream);
-	stream << "/>";
-}
-
-
-void String::dump(std::ostream& stream)
-{
-	stream << "<String>" << utf8_encode(value) << "\"";
 	location.dump(stream);
 	stream << "/>";
 }

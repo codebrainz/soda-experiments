@@ -1,5 +1,5 @@
-#include "sodainc.h" // pch
-#include "token.h"
+#include <soda/sodainc.h> // pch
+#include <soda/token.h>
 #include <ostream>
 #include <sstream>
 #include <utf8/utf8.h>

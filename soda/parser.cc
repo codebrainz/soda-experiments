@@ -1,6 +1,6 @@
-#include "sodainc.h" // pch
-#include "parser.h"
-#include "lexer.h"
+#include <soda/sodainc.h> // pch
+#include <soda/parser.h>
+#include <soda/lexer.h>
 #include <deque>
 #include <cassert>
 #include <stack>
@@ -129,7 +129,14 @@ void parse()
 
 void push_loc() noexcept
 {
-	try { loc_stack.emplace(lex.token); }
+	try
+	{
+		loc_stack.emplace(
+			SourceRange(lex.token.position.start, lex.token.position.end),
+			SourceRange(lex.token.line.start, lex.token.line.end),
+			SourceRange(lex.token.column.start, lex.token.column.end)
+		);
+	}
 	catch (...) {}
 }
 
@@ -160,42 +167,35 @@ void p_tu(TU& tu)
 }
 
 // import_stmt ::= IMPORT IDENT [';'] .
-Stmt *p_import_stmt()
+Stmt p_import_stmt()
 {
-	Stmt *stmt = nullptr;
-	if (last == Token::IMPORT)
-	{
-		next();
-		AstNode<Ident> ident(p_ident_expr());
-		stmt = Import::create(ident);
-	}
-	return stmt;
+	if (accept(Token::IMPORT))
+		return Stmt(new Import(Ident(p_ident_expr())));
+	return Stmt(nullptr);
 }
 
 // alias ::= ALIAS IDENT '=' IDENT [';'] .
-Stmt *p_alias()
+Stmt p_alias()
 {
-	Stmt *stmt = nullptr;
 	if (accept(Token::ALIAS))
 	{
-		AstNode<Ident> type(p_ident_expr());
+		Ident type(p_ident_expr());
 		expect('=');
-		AstNode<Ident> alias(p_ident_expr());
-		stmt = Alias::create(type, alias);
+		Ident alias(p_ident_expr());
+		return Stmt(new Alias(std::move(type), std::move(alias)));
 	}
-	return stmt;
+	return Stmt(nullptr);
 }
 
 // var_decl ::= VAR IDENT { '=' expr } [';'] .
-Stmt *p_var_decl()
+Stmt p_var_decl()
 {
-	Stmt *stmt = nullptr;
 	if (accept(Token::VAR))
 	{
-		AstNode<Ident> ident(p_ident_expr());
+		Ident ident(p_ident_expr());
 		if (accept('='))
 		{
-			AstNode<Expr> expr(p_expr());
+			Expr expr(p_expr());
 			if (!expr)
 			{
 				std::stringstream ss;
@@ -205,63 +205,57 @@ Stmt *p_var_decl()
 				SYNTAX_ERROR(ss.str());
 			}
 			else
-				stmt = VarDecl::create(ident, expr);
+				return Stmt(new VarDecl(std::move(ident), std::move(expr)));
 		}
 		else
-			stmt = VarDecl::create(ident);
+			return Stmt(new VarDecl(std::move(ident), Expr(nullptr)));
 	}
-	return stmt;
+	return Stmt(nullptr);
 }
 
 // func_def ::= FUN IDENT '(' arg_list ')' '{' stmt_list '}' [';'] .
-Stmt *p_func_def()
+Stmt p_func_def()
 {
-	Stmt *stmt = nullptr;
 	if (accept(Token::FUN))
 	{
-		AstNode<Ident> ident(p_ident_expr());
+		Ident ident(p_ident_expr());
 		expect('(');
-		StmtList args; p_arg_list(args);
+		StmtList args;
+		p_arg_list2(args);
 		expect(')');
 		expect('{');
-		StmtList stmts; p_stmt_list(stmts);
+		StmtList stmts;
+		p_stmt_list(stmts);
 		expect('}');
-		stmt = FuncDef::create(ident, args, stmts);
+		return Stmt(
+			new FuncDef(std::move(ident), std::move(args), std::move(stmts))
+		);
 	}
-	return stmt;
+	return Stmt(nullptr);
 }
 
 // arg_list ::= argument { , argument } .
-void p_arg_list(StmtList& lst)
+void p_arg_list2(StmtList& lst)
 {
-	Stmt *arg;
-	while ((arg = p_argument()))
+	do
 	{
-		try
-		{
-			bool has_comma = accept(',');
-			lst.emplace_back(arg);
-			if (!has_comma)
-				break;
-		}
-		catch (...)
-		{
-			delete arg;
-			throw;
-		}
+		Stmt stmt(p_argument());
+		if (!stmt)
+			break;
+		lst.push_back(std::move(stmt));
 	}
+	while (accept(','));
 }
 
 // argument ::= IDENT [ '=' expr ] .
-Stmt *p_argument()
+Stmt p_argument()
 {
-	Stmt *stmt = nullptr;
 	if (last == Token::IDENT)
 	{
-		AstNode<Ident> name(p_ident_expr());
+		Ident name(p_ident_expr());
 		if (accept('='))
 		{
-			AstNode<Expr> expr(p_expr());
+			Expr expr(p_expr());
 			if (!expr)
 			{
 				std::stringstream ss;
@@ -270,40 +264,36 @@ Stmt *p_argument()
 				      lex.token.text << "' (" << last << ")";
 				SYNTAX_ERROR(ss.str());
 			}
-			stmt = Argument::create(name, expr);
+			return Stmt(new Argument(std::move(name), std::move(expr)));
 		}
 		else
-			stmt = Argument::create(name);
+			return Stmt(new Argument(std::move(name), Expr(nullptr)));
 	}
-	return stmt;
+	return Stmt(nullptr);
 }
 
 // class_def ::= CLASS IDENT '{' stmt_list '}' [';'] .
-Stmt *p_class_def()
+Stmt p_class_def()
 {
-	Stmt *stmt = nullptr;
 	if (accept(Token::CLASS))
 	{
-		AstNode<Ident> name(p_ident_expr());
+		Ident name(p_ident_expr());
 		expect('{');
-		StmtList stmts; p_stmt_list(stmts, true);
+		StmtList stmts;
+		p_stmt_list(stmts, true);
 		expect('}');
-		stmt = ClassDef::create(name, stmts);
+		return Stmt(new ClassDef(std::move(name), std::move(stmts)));
 	}
-	return stmt;
+	return Stmt(nullptr);
 }
 
-// if_stmt ::= IF '(' expr ')'
-//             { (ELIF | ELSE IF) '(' expr ')' '{' local_stmt_list '}' }
-//             [ ELSE '{' local_stmt_list '}' ] .
-Stmt *p_if_stmt()
+Stmt p_if_stmt()
 {
-	Stmt *stmt = nullptr;
 	if (accept(Token::IF))
 	{
 		expect('(');
-		AstNode<Expr> if_expr(p_expr());
-		if (!if_expr)
+		Expr expr(p_expr());
+		if (!expr)
 		{
 			std::stringstream ss;
 			ss << "expected condition expression in `if', got " <<
@@ -311,69 +301,41 @@ Stmt *p_if_stmt()
 			SYNTAX_ERROR(ss.str());
 		}
 		expect(')');
-
-		expect('{');
-		StmtList if_stmts; p_stmt_list(if_stmts);
-		expect('}');
-
-		StmtList elseif_stmts; // IfStmt sequence
-		StmtList else_stmts;
-
-		while (last == Token::ELSE || last == Token::ELIF)
+		Stmt if_stmt(p_stmt());
+		if (accept(Token::ELSE))
 		{
-			bool is_elif = (last == Token::ELIF);
-			next();
-			if (is_elif || accept(Token::IF))
-			{
-				expect('(');
-				AstNode<Expr> elseif_expr(p_expr());
-				if (!elseif_expr)
-				{
-					std::stringstream ss;
-					ss << "expected conditional expression in ";
-					if (is_elif)
-						ss << "`elif'";
-					else
-						ss << "`else if'";
-					ss << ", got `" << lex.token.text << "' (" << last << ")";
-					SYNTAX_ERROR(ss.str());
-				}
-				expect(')');
-				expect('{');
-				StmtList elseif_body_stmts;
-				p_stmt_list(elseif_body_stmts);
-				expect('}');
-				AstNode<IfStmt> elseif_stmt(IfStmt::create(elseif_expr, elseif_body_stmts));
-				elseif_stmts.emplace_back(elseif_stmt.get());
-				elseif_stmt.clear();
-				continue;
-			}
-			else
-			{
-				expect('{');
-				p_stmt_list(else_stmts);
-				expect('}');
-				break;
-			}
+			Stmt else_stmt(p_stmt());
+			return Stmt(
+				new IfStmt(std::move(expr), std::move(if_stmt), std::move(else_stmt)));
 		}
-
-		stmt = IfStmt::create(if_expr, if_stmts, elseif_stmts, else_stmts);
+		else
+		{
+			return Stmt(
+				new IfStmt(std::move(expr), std::move(if_stmt), Stmt(nullptr)));
+		}
 	}
-	return stmt;
+	return Stmt(nullptr);
 }
 
 // return_stmt ::= RETURN [ expr ] [';'] .
-Stmt *p_return_stmt()
+Stmt p_return_stmt()
 {
-	Stmt *stmt = nullptr;
 	if (accept(Token::RETURN))
-	{
-		AstNode<Expr> expr(p_expr());
-		stmt = ReturnStmt::create(expr);
-	}
-	return stmt;
+		return Stmt(new ReturnStmt(std::move(p_expr())));
+	return Stmt(nullptr);
 }
 
+Stmt p_block_stmt()
+{
+	if (accept('{'))
+	{
+		StmtList stmts;
+		p_stmt_list(stmts);
+		expect('}');
+		return Stmt(new CompoundStmt(std::move(stmts)));
+	}
+	return Stmt(nullptr);
+}
 
 // stmt ::= alias
 //       | import
@@ -383,53 +345,55 @@ Stmt *p_return_stmt()
 //       | return_stmt
 //       | if_stmt
 //       .
-Stmt *p_stmt(bool top_level=false)
+Stmt p_stmt(bool top_level=false)
 {
-#define TRY_STMT(name) \
-	do { if ((stmt = p_##name())) { pop_loc(); return stmt; } } while (0)
-	Stmt *stmt = nullptr;
-	push_loc();
+#define TRY_STMT(name)         \
+	do {                       \
+		Stmt stmt(p_##name()); \
+		if (stmt)              \
+			return stmt;       \
+	} while (0)
+
+	//push_loc();
+
 	TRY_STMT(alias);
 	TRY_STMT(import_stmt);
 	TRY_STMT(var_decl);
 	TRY_STMT(func_def);
 	TRY_STMT(class_def);
+
 	if (!top_level)
 	{
 		TRY_STMT(return_stmt);
 		TRY_STMT(if_stmt);
+		TRY_STMT(block_stmt);
 	}
-	pop_loc(stmt);
-	return stmt;
+
+	//pop_loc(stmt);
+	return Stmt(nullptr);
+
 #undef TRY_STMT
 }
 
 // stmt_list ::= stmt { stmt } .
 void p_stmt_list(StmtList& lst, bool top_level=false)
 {
-	Stmt *stmt;
-	while ((stmt = p_stmt(top_level)))
+	while (true)
 	{
-		try
-		{
-			lst.emplace_back(stmt);
-			while (accept(';'))
-				; // skip stray semi-colons
-		}
-		catch (...)
-		{
-			delete stmt;
-			throw;
-		}
+		Stmt stmt(p_stmt(top_level));
+		if (!stmt)
+			break;
+		lst.push_back(std::move(stmt));
+		while (accept(';'))
+			;
 	}
 	while (accept(';'))
-		; // skip stray semi-colons
+		;
 }
 
 // number_expr ::= ??INTEGER_CONSTANTS?? | FCONST .
-Expr *p_number_expr()
+Expr p_number_expr()
 {
-	Expr *exp = nullptr;
 	int base;
 
 	switch (last)
@@ -443,19 +407,18 @@ Expr *p_number_expr()
 	}
 
 	if (base < 0)
-		return nullptr;
+		return Expr(nullptr);
 
 	try
 	{
 		if (base == 0)
-			exp = new Float(text());
+			return Expr(new Float(text()));
 		else
-			exp = new Integer(text(), base);
+			return Expr(new Integer(text(), base));
 		next();
 	}
 	catch (std::invalid_argument&)
 	{
-		delete exp;
 		std::stringstream ss;
 		ss << "failed to parse ";
 		if (base == 0)
@@ -466,42 +429,32 @@ Expr *p_number_expr()
 			ss << ". prefixed numbers must have at least 1 digit";
 		SYNTAX_ERROR(ss.str());
 	}
-	catch (SyntaxError&)
-	{
-		delete exp;
-		throw;
-	}
 
-	return exp;
+	return Expr(nullptr);
 }
 
 // paren_expr ::= '(' expr ')' .
-Expr *p_paren_expr()
+Expr p_paren_expr()
 {
 	next();
-	AstNode<Expr> expr(p_expr());
+	Expr expr(p_expr());
 	if (!expr)
-		return nullptr;
+		return Expr(nullptr);
 	expect(')');
-	return expr.steal();
-}
-
-// ident_expr ::= IDENT .
-Ident *p_ident_expr()
-{
-	Ident *expr;
-	push_loc();
-	AstNode<Ident> ident(new Ident(text()));
-	expect(Token::IDENT);
-	expr = ident.steal();
-	pop_loc(expr);
 	return expr;
 }
 
-// strlit_expr ::= STR_LIT { STR_LIT } .
-Expr *p_strlit_expr()
+// ident_expr ::= IDENT .
+Ident p_ident_expr()
 {
-	Expr *exp = nullptr;
+	Ident ident(new IdentImpl(text()));
+	expect(Token::IDENT);
+	return ident;
+}
+
+// strlit_expr ::= STR_LIT { STR_LIT } .
+Expr p_strlit_expr()
+{
 	if (last == Token::STR_LIT)
 	{
 		std::u32string text;
@@ -510,13 +463,13 @@ Expr *p_strlit_expr()
 			text += lex.token.text.substr(1, lex.token.text.size() - 2);
 			next();
 		} while (last == Token::STR_LIT);
-		exp = new StrLit(text);
+		return Expr(new StrLit(text));
 	}
-	return exp;
+	return Expr(nullptr);
 }
 
 // primary_expr ::= ident_expr | number_expr | paren_expr .
-Expr *p_primary_expr()
+Expr p_primary_expr()
 {
 	switch (last)
 	{
@@ -546,52 +499,36 @@ Expr *p_primary_expr()
 }
 
 // expr ::= primary_expr bin_op_rhs .
-Expr *p_expr()
+Expr p_expr()
 {
-	push_loc();
-	push_loc();
-	AstNode<Expr> lhs(p_primary_expr());
+	Expr lhs(p_primary_expr());
 	if (!lhs)
-	{
-		pop_loc();
-		return nullptr;
-	}
-	pop_loc(lhs.get());
-	AstNode<Expr> bin_op(p_bin_op_rhs(0, lhs.get()));
-	lhs.clear();
-	pop_loc(bin_op.get());
-	return bin_op.steal();
+		return Expr(nullptr);
+	return p_bin_op_rhs(0, lhs.release());
 }
 
 // bin_op_rhs ::= { ??OPERATORS?? primary_expr } .
-Expr *p_bin_op_rhs(int expr_prec, Expr *lhs)
+Expr p_bin_op_rhs(int expr_prec, ExprImpl* lhs)
 {
 	// TODO: make exception-safe
 	while (true)
 	{
 		int tok_prec = get_prec();
 		if (tok_prec < expr_prec)
-			return lhs;
+			return Expr(lhs);
 		char32_t op = last;
 		next();
-		push_loc();
-		Expr *rhs = p_primary_expr();
+		Expr rhs(p_primary_expr());
 		if (!rhs)
-		{
-			pop_loc();
 			return nullptr;
-		}
-		pop_loc(rhs);
 		int next_prec = get_prec();
 		if (tok_prec < next_prec)
 		{
-			push_loc();
-			rhs = p_bin_op_rhs(tok_prec + 1, rhs);
+			rhs.reset(p_bin_op_rhs(tok_prec + 1, rhs.release()).release());
 			if (!rhs)
 				return nullptr;
-			pop_loc(rhs);
 		}
-		lhs = new BinOp(op, lhs, rhs);
+		lhs = new BinOp(op, Expr(lhs), std::move(rhs));
 	}
 }
 
