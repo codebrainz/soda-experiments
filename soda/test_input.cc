@@ -8,11 +8,11 @@ using namespace Soda;
 struct Test
 {
 	const char *str;
-	Input::size_type len;
-	Input::char_type last;
-	Input::size_type pos;
-	Input::size_type line;
-	Input::size_type col;
+	size_t len;
+	char32_t last;
+	size_t pos;
+	size_t line;
+	size_t col;
 };
 
 static const Test tests[] = {
@@ -47,27 +47,24 @@ int main()
 	// Initial state
 	assert(inp.last == 0);
 	assert(inp.peek() != Input::END);
-	assert(inp.position == 0);
-	assert(inp.line == 0);
-	assert(inp.column == 0);
+	assert(inp.position == SourcePosition(0,0,0));
 
 	// Tests
 	for (size_t i = 0; i < n_tests; i++)
 	{
 		inp.next();
 		assert(inp.last == tests[i].last);
-		assert(inp.position == tests[i].pos);
-		assert(inp.line == tests[i].line);
-		assert(inp.column == tests[i].col);
+		assert(inp.position ==
+			SourcePosition(tests[i].pos, tests[i].line, tests[i].col));
 	}
 
 	// EOF
 	inp.next();
 	assert(inp.last == Input::END);
 	assert(inp.peek() == Input::END);
-	assert(inp.position == tests[n_tests - 1].pos);
-	assert(inp.line == tests[n_tests - 1].line);
-	assert(inp.column == tests[n_tests - 1].col);
+	assert(inp.position ==
+		SourcePosition(tests[n_tests - 1].pos, tests[n_tests - 1].line,
+			tests[n_tests - 1].col));
 
 	return 0;
 

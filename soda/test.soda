@@ -36,7 +36,7 @@ fun main(args)
     {
         if (4 + 5) {
             return 3;
-        } elif (3+3) {
+        } else if (3+3) {
             return 3;
         } else { }
     }
@@ -51,5 +51,18 @@ fun main(args)
 
 class Foo
 {
-    fun Foo(i=1) { return 1; }
+    fun Foo(i=1.01234) { return 1.0; }
 };
+
+fun test_switch()
+{
+	switch (a/2*3+(4/12)%3)
+	{
+		case B+1:
+			break;
+		default:
+			return 1;
+	}
+
+	var foo.bar.baz = 1;
+}

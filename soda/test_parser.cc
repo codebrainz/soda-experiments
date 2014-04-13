@@ -1,5 +1,6 @@
 #include <soda/sodainc.h> // pch
 #include <soda/parser.h>
+#include <soda/debugvisitor.h>
 #include <cassert>
 
 using namespace Soda;
@@ -12,7 +13,8 @@ int main()
 	{
 		parse(tu, stream);
 		assert(tu.stmts.size() > 0);
-		tu.dump(std::cout);
+		DebugVisitor printer(std::cout);
+		tu.accept(printer);
 	}
 	catch (SyntaxError& err)
 	{

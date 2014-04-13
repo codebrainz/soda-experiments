@@ -1,6 +1,7 @@
 #ifndef SODA_TOKEN_H
 #define SODA_TOKEN_H
 
+#include <soda/sourcelocation.h>
 #include <limits>
 #include <string>
 
@@ -9,9 +10,6 @@ namespace Soda
 
 struct Token
 {
-	typedef char32_t char_type;
-	typedef size_t size_type;
-
 	enum Kind {
 		END=std::numeric_limits<int>::min(),
 		ERROR=-1,
@@ -96,19 +94,17 @@ struct Token
 		IF,
 		ELIF,
 		ELSE,
-	};
-
-	struct Range {
-		size_type start, end;
-		Range(size_type start=0, size_type end=0)
-			: start(start), end(end) {}
+		SWITCH,
+		CASE,
+		DEFAULT,
+		BREAK,
 	};
 
 	Kind kind;
-	Range position, line, column;
+	SourceLocation location;
 	std::u32string text;
 
-	Token() : kind(ZERO), position(0,0), line(0,0), column(0,0), text() {}
+	Token() : kind(ZERO), location(0,0,0,0,0,0), text() {}
 
 	void clear()
 	{
@@ -117,17 +113,14 @@ struct Token
 	}
 
 	Token(const Token& tok)
-		: kind(tok.kind), position(tok.position), line(tok.line),
-		column(tok.column), text(tok.text) {}
+		: kind(tok.kind), location(tok.location), text(tok.text) {}
 
 	Token& operator=(const Token& rhs)
 	{
 		if (&rhs != this)
 		{
 			kind = rhs.kind;
-			position = rhs.position;
-			line = rhs.line;
-			column = rhs.column;
+			location = rhs.location;
 			text = rhs.text;
 		}
 		return *this;
@@ -135,10 +128,12 @@ struct Token
 
 	void swap(Token& rhs)
 	{
-		Kind k = rhs.kind; rhs.kind = kind; kind = k;
-		Range r = rhs.position; rhs.position = position; position = r;
-		r = rhs.line; rhs.line = line; line = r;
-		r = rhs.column; rhs.column = column; column = r;
+		Kind k = rhs.kind;
+		rhs.kind = kind;
+		kind = k;
+		SourceLocation loc = rhs.location;
+		rhs.location = location;
+		location = loc;
 		text.swap(rhs.text);
 	}
 };

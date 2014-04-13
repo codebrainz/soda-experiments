@@ -42,7 +42,7 @@ all: sodac
 ####
 # OBJECT FILES
 ####
-%.o: %.cc sodainc.gch
+%.o: %.cc sodainc.gch debugvisitor.h
 	$(V_CXX) -fPIC $(strip $(SODA_CXXFLAGS)) -o $@ $<
 
 ####
@@ -81,7 +81,7 @@ check: $(TESTS)
 	@export LD_LIBRARY_PATH=.
 	./test_input
 	./test_lexer
-	./test_parser | tidy -xml -asxml -w 80 -i -q
+	./test_parser
 
 ####
 # MISC

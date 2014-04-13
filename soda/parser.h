@@ -2,6 +2,7 @@
 #define SODA_PARSER_H
 
 #include <soda/ast.h>
+#include <soda/sourcelocation.h>
 #include <istream>
 #include <fstream>
 #include <sstream>
@@ -16,20 +17,16 @@ class SyntaxError : public std::runtime_error
 public:
 	SyntaxError(const char *what,
 	            const std::string& filename,
-	            int pos_start,  int pos_end,
-	            int line_start, int line_end,
-	            int col_start,  int col_end,
+	            SourceLocation location,
 	            const std::string& message);
 	const std::string& filename() const noexcept { return fn; }
-	int position() const noexcept { return pos_start; }
-	int line() const noexcept { return line_start; }
-	int column() const noexcept { return col_start; }
+	int position() const noexcept { return location.offset.start; }
+	int line() const noexcept { return location.line.start; }
+	int column() const noexcept { return location.column.start; }
 	const std::string& message() const noexcept { return msg; }
 private:
 	std::string fn;
-	int pos_start, pos_end;
-	int line_start, line_end;
-	int col_start, col_end;
+	SourceLocation location;
 	std::string msg;
 	friend void format_exception(std::ostream&, SyntaxError&);
 };

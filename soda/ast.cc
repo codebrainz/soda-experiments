@@ -42,11 +42,4 @@ Float::Float(std::u32string valstr)
 		throw std::invalid_argument("std::stold");
 }
 
-void IdentImpl::dump(std::ostream& stream)
-{
-	stream << "<Ident name=\"" << utf8_encode(name) << "\"";
-	location.dump(stream);
-	stream << "/>";
-}
-
 } // namespace Soda

@@ -21,9 +21,9 @@ LexImpl(Token& tok, std::istream& stream)
 // Update the current token's start position and clear its text/kind
 void begin_token()
 {
-	token.position.start = input.position;
-	token.line.start = input.line;
-	token.column.start = input.column;
+	token.location.offset.start = input.position.offset;
+	token.location.line.start   = input.position.line;
+	token.location.column.start = input.position.column;
 	clear();
 }
 
@@ -31,9 +31,9 @@ void begin_token()
 // so doesn't often need to be called explicitly.
 void end_token()
 {
-	token.position.end = input.position;
-	token.line.end = input.line;
-	token.column.end = input.column;
+	token.location.offset.end = input.position.offset;
+	token.location.line.end   = input.position.line;
+	token.location.column.end = input.position.column;
 }
 
 // Clear the current token's text and kind (Note: it's called by begin
@@ -45,10 +45,10 @@ void clear()
 
 // verify the current input.last is what we expect and then save it into
 // the token text, update the token end location and finally advance the input.
-void advance(Input::char_type ch = std::numeric_limits<Input::char_type>::max())
+void advance(char32_t ch = std::numeric_limits<char32_t>::max())
 {
 #ifndef NDEBUG
-	if ((ch < std::numeric_limits<Input::char_type>::max())
+	if ((ch < std::numeric_limits<char32_t>::max())
 	    && ch != input.last)
 	{
 		std::cerr << "Wrong current character while skipping to " <<
@@ -107,6 +107,14 @@ Token::Kind next()
 			token.kind = Token::FROM;
 		else if (token.text == U"class")
 			token.kind = Token::CLASS;
+		else if (token.text == U"switch")
+			token.kind = Token::SWITCH;
+		else if (token.text == U"case")
+			token.kind = Token::CASE;
+		else if (token.text == U"default")
+			token.kind = Token::DEFAULT;
+		else if (token.text == U"break")
+			token.kind = Token::BREAK;
 		else
 			token.kind = Token::IDENT;
 	}

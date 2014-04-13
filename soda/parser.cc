@@ -8,12 +8,9 @@
 namespace Soda
 {
 
-#define SYNTAX_ERROR(msg)                                      \
-		throw Soda::SyntaxError(                               \
-			"syntax error", tu.fn,                             \
-			lex.token.position.start, lex.token.position.end,  \
-			lex.token.line.start, lex.token.line.end,          \
-			lex.token.column.start, lex.token.column.end, msg)
+#define SYNTAX_ERROR(msg) \
+	throw Soda::SyntaxError("syntax error", tu.fn, \
+		SourceLocation(lex.token.location), msg)
 
 struct Parser
 {
@@ -131,11 +128,7 @@ void push_loc() noexcept
 {
 	try
 	{
-		loc_stack.emplace(
-			SourceRange(lex.token.position.start, lex.token.position.end),
-			SourceRange(lex.token.line.start, lex.token.line.end),
-			SourceRange(lex.token.column.start, lex.token.column.end)
-		);
+		loc_stack.emplace(lex.token.location);
 	}
 	catch (...) {}
 }
@@ -166,7 +159,7 @@ void p_tu(TU& tu)
 	p_stmt_list(tu.stmts, true);
 }
 
-// import_stmt ::= IMPORT IDENT [';'] .
+// import_stmt ::= IMPORT IDENT .
 Stmt p_import_stmt()
 {
 	if (accept(Token::IMPORT))
@@ -174,7 +167,7 @@ Stmt p_import_stmt()
 	return Stmt(nullptr);
 }
 
-// alias ::= ALIAS IDENT '=' IDENT [';'] .
+// alias ::= ALIAS IDENT '=' IDENT .
 Stmt p_alias()
 {
 	if (accept(Token::ALIAS))
@@ -187,7 +180,7 @@ Stmt p_alias()
 	return Stmt(nullptr);
 }
 
-// var_decl ::= VAR IDENT { '=' expr } [';'] .
+// var_decl ::= VAR IDENT { '=' expr } .
 Stmt p_var_decl()
 {
 	if (accept(Token::VAR))
@@ -213,7 +206,7 @@ Stmt p_var_decl()
 	return Stmt(nullptr);
 }
 
-// func_def ::= FUN IDENT '(' arg_list ')' '{' stmt_list '}' [';'] .
+// func_def ::= FUN IDENT '(' arg_list ')' '{' stmt_list '}' .
 Stmt p_func_def()
 {
 	if (accept(Token::FUN))
@@ -221,21 +214,17 @@ Stmt p_func_def()
 		Ident ident(p_ident_expr());
 		expect('(');
 		StmtList args;
-		p_arg_list2(args);
+		p_arg_list(args);
 		expect(')');
-		expect('{');
-		StmtList stmts;
-		p_stmt_list(stmts);
-		expect('}');
 		return Stmt(
-			new FuncDef(std::move(ident), std::move(args), std::move(stmts))
+			new FuncDef(std::move(ident), std::move(args), p_compound_stmt())
 		);
 	}
 	return Stmt(nullptr);
 }
 
 // arg_list ::= argument { , argument } .
-void p_arg_list2(StmtList& lst)
+void p_arg_list(StmtList& lst)
 {
 	do
 	{
@@ -276,13 +265,63 @@ Stmt p_argument()
 Stmt p_class_def()
 {
 	if (accept(Token::CLASS))
+		return Stmt(new ClassDef(p_ident_expr(), p_compound_stmt(true)));
+	return Stmt(nullptr);
+}
+
+Stmt p_case()
+{
+	if (accept(Token::CASE))
 	{
-		Ident name(p_ident_expr());
+		Expr expr(p_expr());
+		expect(':');
+		return Stmt(new CaseStmt(std::move(expr), p_stmt()));
+	}
+	return Stmt(nullptr);
+}
+
+Stmt p_default()
+{
+	if (accept(Token::DEFAULT))
+	{
+		expect(':');
+		return Stmt(new CaseStmt(Expr(nullptr), p_stmt()));
+	}
+	return Stmt(nullptr);
+}
+
+void p_case_list(StmtList& case_list)
+{
+	while (true)
+	{
+		Stmt case_stmt(p_case());
+		if (case_stmt)
+			case_list.push_back(std::move(case_stmt));
+		else
+		{
+			Stmt def_stmt(p_default());
+			if (def_stmt)
+				case_list.push_back(std::move(def_stmt));
+			else
+				break;
+		}
+		while (accept(';'))
+			;
+	}
+}
+
+Stmt p_switch_stmt()
+{
+	if (accept(Token::SWITCH))
+	{
+		expect('(');
+		Expr expr(p_expr());
+		expect(')');
 		expect('{');
-		StmtList stmts;
-		p_stmt_list(stmts, true);
+		StmtList cases;
+		p_case_list(cases);
 		expect('}');
-		return Stmt(new ClassDef(std::move(name), std::move(stmts)));
+		return Stmt(new SwitchStmt(std::move(expr), std::move(cases)));
 	}
 	return Stmt(nullptr);
 }
@@ -305,19 +344,21 @@ Stmt p_if_stmt()
 		if (accept(Token::ELSE))
 		{
 			Stmt else_stmt(p_stmt());
-			return Stmt(
-				new IfStmt(std::move(expr), std::move(if_stmt), std::move(else_stmt)));
+			return Stmt(new IfStmt(std::move(expr),
+			                       std::move(if_stmt),
+			                       std::move(else_stmt)));
 		}
 		else
 		{
-			return Stmt(
-				new IfStmt(std::move(expr), std::move(if_stmt), Stmt(nullptr)));
+			return Stmt(new IfStmt(std::move(expr),
+			                       std::move(if_stmt),
+			                       Stmt(nullptr)));
 		}
 	}
 	return Stmt(nullptr);
 }
 
-// return_stmt ::= RETURN [ expr ] [';'] .
+// return_stmt ::= RETURN [ expr ] .
 Stmt p_return_stmt()
 {
 	if (accept(Token::RETURN))
@@ -325,12 +366,21 @@ Stmt p_return_stmt()
 	return Stmt(nullptr);
 }
 
-Stmt p_block_stmt()
+// break_stmt ::= BREAK .
+Stmt p_break_stmt()
+{
+	if (accept(Token::BREAK))
+		return Stmt(new BreakStmt);
+	return Stmt(nullptr);
+}
+
+// compound_stmt ::= '{' p_stmt_list '}'
+Stmt p_compound_stmt(bool top_level=false)
 {
 	if (accept('{'))
 	{
 		StmtList stmts;
-		p_stmt_list(stmts);
+		p_stmt_list(stmts, top_level);
 		expect('}');
 		return Stmt(new CompoundStmt(std::move(stmts)));
 	}
@@ -366,7 +416,9 @@ Stmt p_stmt(bool top_level=false)
 	{
 		TRY_STMT(return_stmt);
 		TRY_STMT(if_stmt);
-		TRY_STMT(block_stmt);
+		TRY_STMT(switch_stmt);
+		TRY_STMT(compound_stmt);
+		TRY_STMT(break_stmt);
 	}
 
 	//pop_loc(stmt);
@@ -412,10 +464,17 @@ Expr p_number_expr()
 	try
 	{
 		if (base == 0)
-			return Expr(new Float(text()));
+		{
+			Expr expr(new Float(text()));
+			next();
+			return std::move(expr);
+		}
 		else
-			return Expr(new Integer(text(), base));
-		next();
+		{
+			Expr expr(new Integer(text(), base));
+			next();
+			return std::move(expr);
+		}
 	}
 	catch (std::invalid_argument&)
 	{
@@ -444,11 +503,31 @@ Expr p_paren_expr()
 	return expr;
 }
 
-// ident_expr ::= IDENT .
+// ident_expr ::= IDENT { '.' IDENT } .
 Ident p_ident_expr()
 {
 	Ident ident(new IdentImpl(text()));
-	expect(Token::IDENT);
+	while (accept(Token::IDENT))
+	{
+		if (accept('.'))
+		{
+			if (last == Token::IDENT)
+			{
+				ident->name += U".";
+				ident->name += text();
+			}
+			else
+			{
+				std::stringstream ss;
+				ss << "expecting an identifier after `.', got `" << text()
+				   << "' (" << lex.token.kind << ")";
+				SYNTAX_ERROR(ss.str());
+			}
+			continue;
+		}
+		else
+			break;
+	}
 	return ident;
 }
 
@@ -557,15 +636,11 @@ void parse(TU& tu)
 
 SyntaxError::SyntaxError(const char *what,
                          const std::string& filename,
-                         int pos_start,  int pos_end,
-                         int line_start, int line_end,
-                         int col_start,  int col_end,
+                         SourceLocation location,
                          const std::string& message)
 	: std::runtime_error(what),
 	  fn(filename),
-	  pos_start(pos_start), pos_end(pos_end),
-	  line_start(line_start), line_end(line_end),
-	  col_start(col_start), col_end(col_end),
+	  location(location),
 	  msg(message)
 {
 }
@@ -586,14 +661,14 @@ enum Color
 void format_exception(std::ostream& stream, SyntaxError& err)
 {
 	stream << "\x1B[31merror\x1B[0m:\x1B[33m" << err.fn << "\x1B[0m:";
-	if (err.line_start != err.line_end)
-		stream << "\x1B[35m" << err.line_start + 1 << "-" << err.line_end + 1 << "\x1B[0m:";
+	if (err.location.line.start != err.location.line.end)
+		stream << "\x1B[35m" << err.location.line.start + 1 << "-" << err.location.line.end + 1 << "\x1B[0m:";
 	else
-		stream << "\x1B[35m" << err.line_start + 1 << "\x1B[0m:";
-	if (err.col_start != err.col_end)
-		stream << "\x1B[36m" << err.col_start << "-" << err.col_end;
+		stream << "\x1B[35m" << err.location.line.start + 1 << "\x1B[0m:";
+	if (err.location.column.start != err.location.column.start)
+		stream << "\x1B[36m" << err.location.column.start << "-" << err.location.column.end;
 	else
-		stream << "\x1B[36m" << err.col_start;
+		stream << "\x1B[36m" << err.location.column.start;
 	if (!err.msg.empty())
 		stream << "\x1B[0m: " << err.msg << "\n";
 	else

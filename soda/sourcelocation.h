@@ -14,20 +14,34 @@ struct SourceRange
 
 struct SourceLocation
 {
-	SourceRange position, line, column;
+	SourceRange offset, line, column;
 
-	SourceLocation()
-		: position(0,0), line(0,0), column(0,0) {}
-
-	SourceLocation(SourceRange position,
-	               SourceRange line,
-	               SourceRange column)
-		: position(position), line(line), column(column) {}
+	SourceLocation(size_t offset_start=0, size_t offset_end=0,
+	               size_t line_start=0,   size_t line_end=0,
+	               size_t column_start=0, size_t column_end=0)
+		: offset(offset_start, offset_end),
+		  line(line_start, line_end),
+		  column(column_start, column_end) {}
 
 	void dump(std::ostream& stream)
 	{
 		stream << " line=\""   << line.start   << "," << line.end   << "\""
 		       << " column=\"" << column.start << "," << column.end << "\"";
+	}
+};
+
+struct SourcePosition
+{
+	size_t offset, line, column;
+	SourcePosition(size_t offset=0, size_t line=0, size_t column=0)
+		: offset(offset), line(line), column(column) {}
+	bool operator==(const SourcePosition& rhs)
+	{
+		return (offset == rhs.offset && line == rhs.line && column == rhs.column);
+	}
+	bool operator!=(const SourcePosition& rhs)
+	{
+		return !(*this == rhs);
 	}
 };
 

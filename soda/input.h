@@ -1,9 +1,11 @@
 #ifndef SODA_INPUT_H
 #define SODA_INPUT_H
 
+#include <soda/sourcelocation.h>
 #include <cstddef>
 #include <istream>
 #include <limits>
+#include <uchar.h>
 
 namespace Soda
 {
@@ -11,19 +13,16 @@ namespace Soda
 class Input
 {
 public:
-	typedef char32_t char_type;
-	typedef size_t size_type;
-
-	static const char_type END = std::numeric_limits<char_type>::max();
+	static const char32_t END = std::numeric_limits<char32_t>::max();
 
 	Input(std::istream& stream);
-	char_type next();
-	char_type peek();
+	char32_t next();
+	char32_t peek();
 	bool eof() const;
 	void skip_whitespace();
 
-	size_type position, line, column;
-	char_type last;
+	SourcePosition position;
+	char32_t last;
 
 	std::istream& input_stream() { return stream; }
 
@@ -31,7 +30,7 @@ private:
 	std::istream& stream;
 	std::istreambuf_iterator<char> end, iter;
 	bool has_peeked;
-	char_type peeked;
+	char32_t peeked;
 };
 
 } // namespace Soda

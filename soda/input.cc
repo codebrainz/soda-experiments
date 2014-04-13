@@ -7,8 +7,12 @@ namespace Soda
 {
 
 Input::Input(std::istream& stream)
-	:  position(0), line(0), column(0), last(0), stream(stream), iter(stream.rdbuf()),
-	   has_peeked(false), peeked(0)
+	:  position(0,0,0),
+	   last(0),
+	   stream(stream),
+	   iter(stream.rdbuf()),
+	   has_peeked(false),
+	   peeked(0)
 {
 }
 
@@ -23,7 +27,7 @@ bool Input::eof() const
 	return stream.eof();
 }
 
-Input::char_type Input::next()
+char32_t Input::next()
 {
 	if (has_peeked)
 	{
@@ -44,25 +48,25 @@ Input::char_type Input::next()
 		}
 	}
 
-	position++;
+	position.offset++;
 
 	if (is_newline(last))
 	{
-		line++;
-		column = 0;
+		position.line++;
+		position.column = 0;
 		if (last == '\r' && stream.peek() == '\n')
 		{
 			last = utf8::next(iter, end);
-			position++;
+			position.offset++;
 		}
 	}
 	else
-		column++;
+		position.column++;
 
 	return last;
 }
 
-Input::char_type Input::peek()
+char32_t Input::peek()
 {
 	if (has_peeked)
 	{
