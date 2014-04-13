@@ -23,10 +23,11 @@ struct SourceLocation
 		  line(line_start, line_end),
 		  column(column_start, column_end) {}
 
-	void dump(std::ostream& stream)
-	{
-		stream << " line=\""   << line.start   << "," << line.end   << "\""
-		       << " column=\"" << column.start << "," << column.end << "\"";
+	SourcePosition pos_start()  const {
+		return SourcePosition(offset.start, line.start, column.start);
+	}
+	SourcePosition pos_end() const {
+		return SourcePosition(offset.end, line.end, column.end);
 	}
 };
 

@@ -37,7 +37,6 @@ public:
 	virtual bool visit(CompoundStmt&) = 0;
 	virtual bool visit(FuncDef&) = 0;
 	virtual bool visit(IdentImpl&) = 0;
-	//virtual bool visit(FuncDef&) = 0;
 	virtual bool visit(IfStmt&) = 0;
 	virtual bool visit(Import&) = 0;
 	virtual bool visit(Integer&) = 0;

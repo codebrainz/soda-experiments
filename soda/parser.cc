@@ -261,7 +261,7 @@ Stmt p_argument()
 	return Stmt(nullptr);
 }
 
-// class_def ::= CLASS IDENT '{' stmt_list '}' [';'] .
+// class_def ::= CLASS IDENT '{' stmt_list '}' .
 Stmt p_class_def()
 {
 	if (accept(Token::CLASS))
@@ -404,8 +404,6 @@ Stmt p_stmt(bool top_level=false)
 			return stmt;       \
 	} while (0)
 
-	//push_loc();
-
 	TRY_STMT(alias);
 	TRY_STMT(import_stmt);
 	TRY_STMT(var_decl);
@@ -421,7 +419,6 @@ Stmt p_stmt(bool top_level=false)
 		TRY_STMT(break_stmt);
 	}
 
-	//pop_loc(stmt);
 	return Stmt(nullptr);
 
 #undef TRY_STMT
@@ -467,13 +464,13 @@ Expr p_number_expr()
 		{
 			Expr expr(new Float(text()));
 			next();
-			return std::move(expr);
+			return expr;
 		}
 		else
 		{
 			Expr expr(new Integer(text(), base));
 			next();
-			return std::move(expr);
+			return expr;
 		}
 	}
 	catch (std::invalid_argument&)
@@ -506,28 +503,27 @@ Expr p_paren_expr()
 // ident_expr ::= IDENT { '.' IDENT } .
 Ident p_ident_expr()
 {
+	SourcePosition pos = lex.location.pos_start();
 	Ident ident(new IdentImpl(text()));
 	while (accept(Token::IDENT))
 	{
 		if (accept('.'))
 		{
-			if (last == Token::IDENT)
-			{
-				ident->name += U".";
-				ident->name += text();
-			}
-			else
+			if (last != Token::IDENT)
 			{
 				std::stringstream ss;
 				ss << "expecting an identifier after `.', got `" << text()
 				   << "' (" << lex.token.kind << ")";
 				SYNTAX_ERROR(ss.str());
 			}
+			ident->name += U".";
+			ident->name += text();
 			continue;
 		}
 		else
 			break;
 	}
+	SourceLocation loc_end = lex.token.location.pos_
 	return ident;
 }
 
@@ -589,7 +585,6 @@ Expr p_expr()
 // bin_op_rhs ::= { ??OPERATORS?? primary_expr } .
 Expr p_bin_op_rhs(int expr_prec, ExprImpl* lhs)
 {
-	// TODO: make exception-safe
 	while (true)
 	{
 		int tok_prec = get_prec();
