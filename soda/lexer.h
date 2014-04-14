@@ -3,7 +3,8 @@
 
 #include <soda/input.h>
 #include <soda/token.h>
-#include <ostream>
+#include <istream>
+#include <vector>
 
 namespace Soda
 {
@@ -21,6 +22,9 @@ private:
 	Lexer(const Lexer&);
 	Lexer& operator=(const Lexer&);
 };
+
+typedef std::vector<Token> TokenList;
+TokenList tokenize(std::istream& stream);
 
 } // namespace Soda
 

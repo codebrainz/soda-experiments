@@ -89,8 +89,6 @@ Token::Kind next()
 			token.kind = Token::FUN;
 		else if (token.text == U"var")
 			token.kind = Token::VAR;
-		else if (token.text == U"const")
-			token.kind = Token::CONST;
 		else if (token.text == U"struct")
 			token.kind = Token::STRUCT;
 		else if (token.text == U"enum")
@@ -115,6 +113,16 @@ Token::Kind next()
 			token.kind = Token::DEFAULT;
 		else if (token.text == U"break")
 			token.kind = Token::BREAK;
+		else if (token.text == U"const")
+			token.kind = Token::CONST;
+		else if (token.text == U"static")
+			token.kind = Token::STATIC;
+		else if (token.text == U"public")
+			token.kind = Token::PUBLIC;
+		else if (token.text == U"private")
+			token.kind = Token::PRIVATE;
+		else if (token.text == U"protected")
+			token.kind = Token::PROTECTED;
 		else
 			token.kind = Token::IDENT;
 	}
@@ -536,6 +544,16 @@ Lexer::~Lexer()
 Token::Kind Lexer::next()
 {
 	return impl->next();
+}
+
+TokenList tokenize(std::istream& stream)
+{
+	TokenList tokens;
+	Lexer lex(stream);
+	Token::Kind kind;
+	while ((kind = lex.next()) != Token::END)
+		tokens.push_back(lex.token);
+	return std::move(tokens);
 }
 
 } // namespace Soda

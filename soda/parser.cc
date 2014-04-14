@@ -21,6 +21,7 @@ Token::Kind last;
 std::deque<Token> saved_tokens;
 bool saving;
 std::stack<SourceLocation> loc_stack;
+SourcePosition end_of_last;
 
 Parser(Lexer& lex, TU& tu)
 	: lex(lex), tu(tu), last(lex.next()), saving(false)
@@ -56,6 +57,7 @@ void reset()
 // update 'last' token and return the kind of it (ie. advance in token stream)
 Token::Kind next()
 {
+	end_of_last = lex.token.location.end();
 	if (saving)
 		saved_tokens.push_back(lex.token);
 	else if (!saved_tokens.empty())
@@ -67,13 +69,18 @@ Token::Kind next()
 	return (last = lex.next());
 }
 
-bool accept(char32_t ch)
+SourcePosition start() const
 {
-	return accept((Token::Kind)ch);
+	return lex.token.location.start();
+}
+
+SourcePosition end() const
+{
+	return end_of_last;
 }
 
 // if the 'last' token is what is expected, advance and return true
-bool accept(Token::Kind kind)
+bool accept(Token::Kind kind, const char *file, unsigned int line)
 {
 	if (last == kind)
 	{
@@ -83,37 +90,57 @@ bool accept(Token::Kind kind)
 	return false;
 }
 
-void expect(char32_t ch)
-{
-	expect((Token::Kind)ch);
-}
-
 // if the 'last' token is what is expected, advance, otherwise throw exception
-void expect(Token::Kind kind)
+void expect(Token::Kind kind, const char *file, unsigned int line)
 {
-	if (!accept(kind))
+	if (!accept(kind, file, line))
 	{
 		std::stringstream ss;
 		ss << "unexpected token `" << last << "', expecting `" << kind << "'";
+#ifndef NDEBUG
+		ss << ".\n\x1B[34m\x1B[47mcallsite\x1B[0m: " << file
+		   << ":\x1B[47m" << line << "\x1B[0m";
+#endif
 		SYNTAX_ERROR(ss.str());
 	}
 }
 
+#define ACCEPT(kind) accept((Token::Kind)(kind), __FILE__, __LINE__)
+#define EXPECT(kind) expect((Token::Kind)(kind), __FILE__, __LINE__)
+
 int get_prec()
 {
-	// TODO: add rest
+	// FIXME: check these
 	switch (last)
 	{
+		case Token::LOG_AND:
+		case Token::LOG_OR:
+			return 10;
+		case Token::LE_OP:
+		case Token::GE_OP:
+		case Token::NE_OP:
+		case Token::EQ_OP:
+			return 20;
+		case Token::LSHIFT:
+		case Token::RSHIFT:
+			return 30;
+		case '&':
+		case '|':
+		case '^':
+			return 40;
 		case '<':
 		case '>':
-			return 10;
+			return 50;
 		case '+':
 		case '-':
-			return 20;
+			return 60;
 		case '*':
 		case '/':
 		case '%':
-			return 40;
+			return 70;
+		case Token::DEC_OP:
+		case Token::INC_OP:
+			return 80;
 		default:
 			return -1;
 	}
@@ -162,31 +189,47 @@ void p_tu(TU& tu)
 // import_stmt ::= IMPORT IDENT .
 Stmt p_import_stmt()
 {
-	if (accept(Token::IMPORT))
-		return Stmt(new Import(Ident(p_ident_expr())));
+	SourcePosition spos = start();
+	if (ACCEPT(Token::IMPORT))
+		return Stmt(new Import(p_ident_expr(), spos, end()));
 	return Stmt(nullptr);
 }
 
 // alias ::= ALIAS IDENT '=' IDENT .
 Stmt p_alias()
 {
-	if (accept(Token::ALIAS))
+	SourcePosition spos = start();
+	if (ACCEPT(Token::ALIAS))
 	{
 		Ident type(p_ident_expr());
-		expect('=');
-		Ident alias(p_ident_expr());
-		return Stmt(new Alias(std::move(type), std::move(alias)));
+		EXPECT('=');
+		return Stmt(new Alias(std::move(type), p_ident_expr(), spos, end()));
 	}
 	return Stmt(nullptr);
 }
 
-// var_decl ::= VAR IDENT { '=' expr } .
+// var_decl ::= VAR [ ':' IDENT ] IDENT { '=' expr } .
 Stmt p_var_decl()
 {
-	if (accept(Token::VAR))
+	SourcePosition spos = start();
+	Ident type(nullptr);
+	if (ACCEPT(Token::VAR))
 	{
-		Ident ident(p_ident_expr());
-		if (accept('='))
+		if (ACCEPT(':'))
+		{
+			Ident t(p_ident_expr());
+			if (t)
+				type = std::move(t);
+			else
+			{
+				std::stringstream ss;
+				ss << "expected a type name identifier after `:', got `"
+				   << lex.token.text << " (" << last << ")";
+				SYNTAX_ERROR(ss.str());
+			}
+		}
+		Ident name(p_ident_expr());
+		if (ACCEPT('='))
 		{
 			Expr expr(p_expr());
 			if (!expr)
@@ -198,10 +241,16 @@ Stmt p_var_decl()
 				SYNTAX_ERROR(ss.str());
 			}
 			else
-				return Stmt(new VarDecl(std::move(ident), std::move(expr)));
+			{
+				return Stmt(new VarDecl(std::move(type), std::move(name),
+					std::move(expr), spos, end()));
+			}
 		}
 		else
-			return Stmt(new VarDecl(std::move(ident), Expr(nullptr)));
+		{
+			return Stmt(new VarDecl(std::move(type), std::move(name),
+				Expr(nullptr), spos, end()));
+		}
 	}
 	return Stmt(nullptr);
 }
@@ -209,16 +258,30 @@ Stmt p_var_decl()
 // func_def ::= FUN IDENT '(' arg_list ')' '{' stmt_list '}' .
 Stmt p_func_def()
 {
-	if (accept(Token::FUN))
+	SourcePosition spos = start();
+	Ident type(nullptr);
+	if (ACCEPT(Token::FUN))
 	{
+		if (ACCEPT(':'))
+		{
+			Ident t(p_ident_expr());
+			if (t)
+				type = std::move(t);
+			else
+			{
+				std::stringstream ss;
+				ss << "expected a type name identifier after `:', got `"
+				   << lex.token.text << " (" << last << ")";
+				SYNTAX_ERROR(ss.str());
+			}
+		}
 		Ident ident(p_ident_expr());
-		expect('(');
+		EXPECT('(');
 		StmtList args;
 		p_arg_list(args);
-		expect(')');
-		return Stmt(
-			new FuncDef(std::move(ident), std::move(args), p_compound_stmt())
-		);
+		EXPECT(')');
+		return Stmt(new FuncDef(std::move(type), std::move(ident), std::move(args),
+			p_compound_stmt(), spos, end()));
 	}
 	return Stmt(nullptr);
 }
@@ -233,16 +296,23 @@ void p_arg_list(StmtList& lst)
 			break;
 		lst.push_back(std::move(stmt));
 	}
-	while (accept(','));
+	while (ACCEPT(','));
 }
 
 // argument ::= IDENT [ '=' expr ] .
 Stmt p_argument()
 {
+	SourcePosition spos = start();
+	Ident type(nullptr);
 	if (last == Token::IDENT)
 	{
 		Ident name(p_ident_expr());
-		if (accept('='))
+		if (last == Token::IDENT)
+		{
+			type = std::move(name);
+			name = std::move(p_ident_expr());
+		}
+		if (ACCEPT('='))
 		{
 			Expr expr(p_expr());
 			if (!expr)
@@ -253,10 +323,10 @@ Stmt p_argument()
 				      lex.token.text << "' (" << last << ")";
 				SYNTAX_ERROR(ss.str());
 			}
-			return Stmt(new Argument(std::move(name), std::move(expr)));
+			return Stmt(new Argument(std::move(type), std::move(name), std::move(expr), spos, end()));
 		}
 		else
-			return Stmt(new Argument(std::move(name), Expr(nullptr)));
+			return Stmt(new Argument(std::move(type), std::move(name), Expr(nullptr), spos, end()));
 	}
 	return Stmt(nullptr);
 }
@@ -264,32 +334,38 @@ Stmt p_argument()
 // class_def ::= CLASS IDENT '{' stmt_list '}' .
 Stmt p_class_def()
 {
-	if (accept(Token::CLASS))
-		return Stmt(new ClassDef(p_ident_expr(), p_compound_stmt(true)));
+	SourcePosition spos = start();
+	if (ACCEPT(Token::CLASS))
+		return Stmt(new ClassDef(p_ident_expr(), p_compound_stmt(true), spos, end()));
 	return Stmt(nullptr);
 }
 
+// case ::= CASE expr ':' .
 Stmt p_case()
 {
-	if (accept(Token::CASE))
+	SourcePosition spos = start();
+	if (ACCEPT(Token::CASE))
 	{
 		Expr expr(p_expr());
-		expect(':');
-		return Stmt(new CaseStmt(std::move(expr), p_stmt()));
+		EXPECT(':');
+		return Stmt(new CaseStmt(std::move(expr), p_stmt(), spos, end()));
 	}
 	return Stmt(nullptr);
 }
 
+// default ::= DEFAULT ':' .
 Stmt p_default()
 {
-	if (accept(Token::DEFAULT))
+	SourcePosition spos = start();
+	if (ACCEPT(Token::DEFAULT))
 	{
-		expect(':');
-		return Stmt(new CaseStmt(Expr(nullptr), p_stmt()));
+		EXPECT(':');
+		return Stmt(new CaseStmt(Expr(nullptr), p_stmt(), spos, end()));
 	}
 	return Stmt(nullptr);
 }
 
+// case_list ::= { (case | default) } .
 void p_case_list(StmtList& case_list)
 {
 	while (true)
@@ -305,32 +381,36 @@ void p_case_list(StmtList& case_list)
 			else
 				break;
 		}
-		while (accept(';'))
+		while (ACCEPT(';'))
 			;
 	}
 }
 
+// switch_stmt ::= SWITCH '(' expr ')' '{' case_list '}' .
 Stmt p_switch_stmt()
 {
-	if (accept(Token::SWITCH))
+	SourcePosition spos = start();
+	if (ACCEPT(Token::SWITCH))
 	{
-		expect('(');
+		EXPECT('(');
 		Expr expr(p_expr());
-		expect(')');
-		expect('{');
+		EXPECT(')');
+		EXPECT('{');
 		StmtList cases;
 		p_case_list(cases);
-		expect('}');
-		return Stmt(new SwitchStmt(std::move(expr), std::move(cases)));
+		EXPECT('}');
+		return Stmt(new SwitchStmt(std::move(expr), std::move(cases), spos, end()));
 	}
 	return Stmt(nullptr);
 }
 
+// if_stmt ::= IF '(' expr ')' stmt [ ELSE stmt ] .
 Stmt p_if_stmt()
 {
-	if (accept(Token::IF))
+	SourcePosition spos = start();
+	if (ACCEPT(Token::IF))
 	{
-		expect('(');
+		EXPECT('(');
 		Expr expr(p_expr());
 		if (!expr)
 		{
@@ -339,20 +419,20 @@ Stmt p_if_stmt()
 			      "`" << lex.token.text << "' (" << last << ")";
 			SYNTAX_ERROR(ss.str());
 		}
-		expect(')');
+		EXPECT(')');
 		Stmt if_stmt(p_stmt());
-		if (accept(Token::ELSE))
+		if (ACCEPT(Token::ELSE))
 		{
 			Stmt else_stmt(p_stmt());
 			return Stmt(new IfStmt(std::move(expr),
 			                       std::move(if_stmt),
-			                       std::move(else_stmt)));
+			                       std::move(else_stmt), spos, end()));
 		}
 		else
 		{
 			return Stmt(new IfStmt(std::move(expr),
 			                       std::move(if_stmt),
-			                       Stmt(nullptr)));
+			                       Stmt(nullptr), spos, end()));
 		}
 	}
 	return Stmt(nullptr);
@@ -361,28 +441,31 @@ Stmt p_if_stmt()
 // return_stmt ::= RETURN [ expr ] .
 Stmt p_return_stmt()
 {
-	if (accept(Token::RETURN))
-		return Stmt(new ReturnStmt(std::move(p_expr())));
+	SourcePosition spos = start();
+	if (ACCEPT(Token::RETURN))
+		return Stmt(new ReturnStmt(std::move(p_expr()), spos, end()));
 	return Stmt(nullptr);
 }
 
 // break_stmt ::= BREAK .
 Stmt p_break_stmt()
 {
-	if (accept(Token::BREAK))
-		return Stmt(new BreakStmt);
+	SourcePosition spos = start();
+	if (ACCEPT(Token::BREAK))
+		return Stmt(new BreakStmt(spos, end()));
 	return Stmt(nullptr);
 }
 
 // compound_stmt ::= '{' p_stmt_list '}'
 Stmt p_compound_stmt(bool top_level=false)
 {
-	if (accept('{'))
+	SourcePosition spos = start();
+	if (ACCEPT('{'))
 	{
 		StmtList stmts;
 		p_stmt_list(stmts, top_level);
-		expect('}');
-		return Stmt(new CompoundStmt(std::move(stmts)));
+		EXPECT('}');
+		return Stmt(new CompoundStmt(std::move(stmts), spos, end()));
 	}
 	return Stmt(nullptr);
 }
@@ -433,10 +516,10 @@ void p_stmt_list(StmtList& lst, bool top_level=false)
 		if (!stmt)
 			break;
 		lst.push_back(std::move(stmt));
-		while (accept(';'))
+		while (ACCEPT(';'))
 			;
 	}
-	while (accept(';'))
+	while (ACCEPT(';'))
 		;
 }
 
@@ -444,14 +527,15 @@ void p_stmt_list(StmtList& lst, bool top_level=false)
 Expr p_number_expr()
 {
 	int base;
+	SourcePosition spos = start();
 
 	switch (last)
 	{
 		case Token::DEC_ICONST: base = 10; break;
 		case Token::HEX_ICONST: base = 16; break;
-		case Token::OCT_ICONST: base = 8;  break;
-		case Token::BIN_ICONST: base = 2;  break;
-		case Token::FCONST:     base = 0;  break;
+		case Token::OCT_ICONST: base =  8; break;
+		case Token::BIN_ICONST: base =  2; break;
+		case Token::FCONST:     base =  0; break;
 		default:                base = -1; break;
 	}
 
@@ -462,13 +546,13 @@ Expr p_number_expr()
 	{
 		if (base == 0)
 		{
-			Expr expr(new Float(text()));
+			Expr expr(new Float(text(), spos, end()));
 			next();
 			return expr;
 		}
 		else
 		{
-			Expr expr(new Integer(text(), base));
+			Expr expr(new Integer(text(), base, spos, end()));
 			next();
 			return expr;
 		}
@@ -492,45 +576,53 @@ Expr p_number_expr()
 // paren_expr ::= '(' expr ')' .
 Expr p_paren_expr()
 {
-	next();
-	Expr expr(p_expr());
-	if (!expr)
-		return Expr(nullptr);
-	expect(')');
-	return expr;
+	if (ACCEPT('('))
+	{
+		Expr expr(p_expr());
+		if (expr)
+		{
+			EXPECT(')');
+			return expr;
+		}
+	}
+	return Expr(nullptr);
 }
 
 // ident_expr ::= IDENT { '.' IDENT } .
 Ident p_ident_expr()
 {
-	SourcePosition pos = lex.location.pos_start();
-	Ident ident(new IdentImpl(text()));
-	while (accept(Token::IDENT))
+	if (last == Token::IDENT)
 	{
-		if (accept('.'))
+		SourcePosition spos = start();
+		std::u32string name(text());
+		while (ACCEPT(Token::IDENT))
 		{
-			if (last != Token::IDENT)
+			if (ACCEPT('.'))
 			{
-				std::stringstream ss;
-				ss << "expecting an identifier after `.', got `" << text()
-				   << "' (" << lex.token.kind << ")";
-				SYNTAX_ERROR(ss.str());
+				if (last != Token::IDENT)
+				{
+					std::stringstream ss;
+					ss << "expecting an identifier after `.', got `" << text()
+					   << "' (" << lex.token.kind << ")";
+					SYNTAX_ERROR(ss.str());
+				}
+				name += U".";
+				name += text();
+				continue;
 			}
-			ident->name += U".";
-			ident->name += text();
-			continue;
+			else
+				break;
 		}
-		else
-			break;
+		return Ident(new IdentImpl(name, spos, end()));
 	}
-	SourceLocation loc_end = lex.token.location.pos_
-	return ident;
+	return Ident(nullptr);
 }
 
 // strlit_expr ::= STR_LIT { STR_LIT } .
 Expr p_strlit_expr()
 {
-	if (last == Token::STR_LIT)
+	SourcePosition spos = start();
+	if (ACCEPT(Token::STR_LIT))
 	{
 		std::u32string text;
 		do
@@ -538,52 +630,53 @@ Expr p_strlit_expr()
 			text += lex.token.text.substr(1, lex.token.text.size() - 2);
 			next();
 		} while (last == Token::STR_LIT);
-		return Expr(new StrLit(text));
+		return Expr(new StrLit(text, spos, end()));
 	}
 	return Expr(nullptr);
 }
 
-// primary_expr ::= ident_expr | number_expr | paren_expr .
+// primary_expr ::= ident_expr
+//               | number_expr
+//               | strlit_expr
+//               | paren_expr
+//               .
 Expr p_primary_expr()
 {
-	switch (last)
-	{
-		case Token::IDENT:
-			return p_ident_expr();
-		case Token::DEC_ICONST:
-		case Token::HEX_ICONST:
-		case Token::OCT_ICONST:
-		case Token::BIN_ICONST:
-		case Token::FCONST:
-			return p_number_expr();
-		case Token::STR_LIT:
-			return p_strlit_expr();
-		case '(':
-			return p_paren_expr();
-		default: // error
-		{
-			std::stringstream ss;
-			if (text().empty())
-				ss << "syntax error";
-			else
-				ss << "unexpected token `" << text() << "' (" << last << ")";
-			ss << ", expecting primary expression";
-			SYNTAX_ERROR(ss.str());
-		}
-	}
+#define TRY_EXPR(name) \
+	do { Expr expr(p_##name()); if (expr) { return expr; } } while(0)
+
+	TRY_EXPR(ident_expr);
+	TRY_EXPR(number_expr);
+	TRY_EXPR(strlit_expr);
+	TRY_EXPR(paren_expr);
+
+{
+	std::stringstream ss;
+	if (text().empty())
+		ss << "syntax error";
+	else
+		ss << "unexpected token `" << text() << "' (" << last << ")";
+	ss << ", expecting primary expression";
+	SYNTAX_ERROR(ss.str());
 }
 
-// expr ::= primary_expr bin_op_rhs .
+	return Expr(nullptr);
+
+#undef TRY_EXPR
+}
+
+// expr ::= primary_expr [ bin_op_rhs ] .
 Expr p_expr()
 {
+	SourcePosition spos = start();
 	Expr lhs(p_primary_expr());
 	if (!lhs)
 		return Expr(nullptr);
-	return p_bin_op_rhs(0, lhs.release());
+	return p_bin_op_rhs(0, lhs.release(), spos);
 }
 
 // bin_op_rhs ::= { ??OPERATORS?? primary_expr } .
-Expr p_bin_op_rhs(int expr_prec, ExprImpl* lhs)
+Expr p_bin_op_rhs(int expr_prec, ExprImpl* lhs, SourcePosition spos)
 {
 	while (true)
 	{
@@ -598,11 +691,12 @@ Expr p_bin_op_rhs(int expr_prec, ExprImpl* lhs)
 		int next_prec = get_prec();
 		if (tok_prec < next_prec)
 		{
-			rhs.reset(p_bin_op_rhs(tok_prec + 1, rhs.release()).release());
+			rhs.reset(p_bin_op_rhs(tok_prec + 1, rhs.release(), spos).release());
 			if (!rhs)
 				return nullptr;
 		}
-		lhs = new BinOp(op, Expr(lhs), std::move(rhs));
+		lhs = new BinOp(op, Expr(lhs), std::move(rhs), spos, end());
+		spos = start();
 	}
 }
 

@@ -56,13 +56,26 @@ class Foo
 
 fun test_switch()
 {
-	switch (a/2*3+(4/12)%3)
-	{
-		case B+1:
-			break;
-		default:
-			return 1;
-	}
+    switch (a/2*3+(4/12)%3)
+    {
+        case B+1:
+            break;
+        default:
+            return 1;
+    }
 
-	var foo.bar.baz = 1;
+    var foo.bar.baz = 1;
+
+    if (1 == 2) {
+		return 1;
+	}
+    else if (2 != 3)
+    {
+		break;
+	}
+}
+
+fun:int add(a, b)
+{
+	return a + b
 }

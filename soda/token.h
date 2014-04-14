@@ -98,6 +98,7 @@ struct Token
 		CASE,
 		DEFAULT,
 		BREAK,
+		VOID,
 	};
 
 	Kind kind;

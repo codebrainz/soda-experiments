@@ -31,17 +31,19 @@ private:
 		return total_indent;
 	}
 
-	std::string pos_attrs(Node& node)
+	std::string pos(Node& node)
 	{
 		std::stringstream ss;
-		ss << " line=\"" << node.location.line.start << "\""
-		   << " column=\"" << node.location.column.start << "\"";
+		// FIXME: don't munge the numbers here, fix the Input class to
+		// store them properly
+		ss << "(" << (node.line() + 1) << ","
+		           << node.column() - 1 << ")";
 		return ss.str();
 	}
 
 	bool visit(Alias& node)
 	{
-		s << indent() << "(alias\n";
+		s << indent() << "(alias " << pos(node) << "\n";
 		indent_level++;
 		node.type->accept(*this);
 		s << "\n";
@@ -53,8 +55,10 @@ private:
 
 	bool visit(Argument& node)
 	{
-		s << indent() << "(argument\n";
+		s << indent() << "(argument " << pos(node) << "\n";
 		indent_level++;
+		if (node.type)
+			s << indent() << "(type '" << node.type->name << "')\n";
 		node.name->accept(*this);
 		if (node.value)
 		{
@@ -68,7 +72,12 @@ private:
 
 	bool visit(BinOp& node)
 	{
-		s << indent() << "(binexpr '" << node.op << "'\n";
+		s << indent() << "(binexpr " << pos(node) << " '";
+		if (node.op >= 32 && node.op <= 126)
+			s << (char) node.op;
+		else
+			s << (Token::Kind) node.op;
+		s << "'\n";
 		indent_level++;
 		node.lhs->accept(*this);
 		s << "\n";
@@ -80,7 +89,7 @@ private:
 
 	bool visit(BreakStmt& node)
 	{
-		s << indent() << "(break)";
+		s << indent() << "(break " << pos(node) << ")";
 		return true;
 	}
 
@@ -88,14 +97,14 @@ private:
 	{
 		if (node.expr)
 		{
-			s << indent() << "(case\n";
+			s << indent() << "(case " << pos(node) << "\n";
 			indent_level++;
 			node.expr->accept(*this);
 			s << "\n";
 		}
 		else
 		{
-			s << indent() << "(default\n";
+			s << indent() << "(default " << pos(node) << "\n";
 			indent_level++;
 		}
 		node.stmt->accept(*this);
@@ -106,7 +115,7 @@ private:
 
 	bool visit(ClassDef& node)
 	{
-		s << indent() << "(classdef\n";
+		s << indent() << "(classdef " << pos(node) << "\n";
 		indent_level++;
 		node.name->accept(*this);
 		s << "\n";
@@ -118,7 +127,7 @@ private:
 
 	bool visit(CompoundStmt& node)
 	{
-		s << indent() << "(compoundstmt";
+		s << indent() << "(compoundstmt " << pos(node) << "";
 		indent_level++;
 		if (node.stmts.empty())
 			s << " ";
@@ -139,8 +148,10 @@ private:
 
 	bool visit(FuncDef& node)
 	{
-		s << indent() << "(funcdef\n";
+		s << indent() << "(funcdef " << pos(node) << "\n";
 		indent_level++;
+		if (node.type)
+			s << indent() << "(type '" << node.type->name << "')\n";
 		node.name->accept(*this);
 		if (!node.args.empty())
 		{
@@ -161,26 +172,29 @@ private:
 
 	bool visit(IdentImpl& node)
 	{
-		s << indent() << "(ident '" << node.name << "')";
+		s << indent() << "(ident " << pos(node) << " '" << node.name << "')";
 		return true;
 	}
 
 	bool visit(IfStmt& node)
 	{
-		s << indent() << "(ifstmt\n";
+		s << indent() << "(ifstmt " << pos(node) << "\n";
 		indent_level++;
 		node.if_expr->accept(*this);
 		s << "\n";
 		node.if_stmt->accept(*this);
-		s << "\n";
-		node.else_stmt->accept(*this);
+		if (node.else_stmt)
+		{
+			s << "\n";
+			node.else_stmt->accept(*this);
+		}
 		indent_level--;
 		return true;
 	}
 
 	bool visit(Import& node)
 	{
-		s << indent() << "(import\n";
+		s << indent() << "(import " << pos(node) << "\n";
 		indent_level++;
 		node.ident->accept(*this);
 		indent_level--;
@@ -190,19 +204,19 @@ private:
 
 	bool visit(Integer& node)
 	{
-		s << indent() << "(integer '" << node.value << "')";
+		s << indent() << "(integer " << pos(node) << " '" << node.value << "')";
 		return true;
 	}
 
 	bool visit(Float& node)
 	{
-		s << indent() << "(float '" << node.value << "')";
+		s << indent() << "(float " << pos(node) << " '" << node.value << "')";
 		return true;
 	}
 
 	bool visit(ReturnStmt& node)
 	{
-		s << indent() << "(return";
+		s << indent() << "(return " << pos(node) << "";
 		if (node.expr)
 		{
 			s << "\n";
@@ -216,13 +230,13 @@ private:
 
 	bool visit(StrLit& node)
 	{
-		s << indent() << "(strlit '" << node.text << "')";
+		s << indent() << "(strlit " << pos(node) << " '" << node.text << "')";
 		return true;
 	}
 
 	bool visit(SwitchStmt& node)
 	{
-		s << indent() << "(switchstmt\n";
+		s << indent() << "(switchstmt " << pos(node) << "\n";
 		indent_level++;
 		node.expr->accept(*this);
 		s << "\n";
@@ -257,8 +271,10 @@ private:
 
 	bool visit(VarDecl& node)
 	{
-		s << indent() << "(vardecl\n";
+		s << indent() << "(vardecl " << pos(node) << "\n";
 		indent_level++;
+		if (node.type)
+			s << indent() << "(type " << pos(*node.type) << " '" << node.type->name << "')\n";
 		node.name->accept(*this);
 		if (node.assign_expr)
 		{
