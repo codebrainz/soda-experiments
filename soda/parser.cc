@@ -153,111 +153,144 @@ void p_tu(TU& tu)
 }
 
 // import_stmt ::= IMPORT IDENT .
-Stmt p_import_stmt()
+StmtPtr p_import_stmt()
 {
 	SourcePosition spos = start();
 	if (ACCEPT(Token::IMPORT))
-		return Stmt(new Import(p_ident_expr(), spos, end()));
-	return Stmt(nullptr);
+		return StmtPtr(new Import(p_ident_expr(), spos, end()));
+	return StmtPtr(nullptr);
 }
 
 // alias ::= ALIAS IDENT '=' IDENT .
-Stmt p_alias()
+StmtPtr p_alias()
 {
 	SourcePosition spos = start();
 	if (ACCEPT(Token::ALIAS))
 	{
-		Ident type(p_ident_expr());
+		IdentPtr type(p_ident_expr());
 		EXPECT('=');
-		return Stmt(new Alias(std::move(type), p_ident_expr(), spos, end()));
+		return StmtPtr(new Alias(std::move(type), p_ident_expr(), spos, end()));
 	}
-	return Stmt(nullptr);
+	return StmtPtr(nullptr);
 }
 
-// var_decl ::= VAR [ ':' IDENT ] IDENT { '=' expr } .
-Stmt p_var_decl()
+// type_ident ::= [const] ident_expr .
+TypeIdentPtr p_type_ident()
 {
 	SourcePosition spos = start();
-	Ident type(nullptr);
-	if (ACCEPT(Token::VAR))
-	{
-		if (ACCEPT(':'))
-		{
-			Ident t(p_ident_expr());
-			if (t)
-				type = std::move(t);
-			else
-			{
-				std::stringstream ss;
-				ss << "expected a type name identifier after `:', got `"
-				   << text() << " (" << current() << ")";
-				SYNTAX_ERROR(ss.str());
-			}
-		}
-		Ident name(p_ident_expr());
-		if (ACCEPT('='))
-		{
-			Expr expr(p_expr());
-			if (!expr)
-			{
-				std::stringstream ss;
-				ss << "expected expression as right hand side of initial " <<
-				      "assignment but got `" << text() << "' " <<
-				      "(" << current() << ")";
-				SYNTAX_ERROR(ss.str());
-			}
-			else
-			{
-				return Stmt(new VarDecl(std::move(type), std::move(name),
-					std::move(expr), spos, end()));
-			}
-		}
-		else
-		{
-			return Stmt(new VarDecl(std::move(type), std::move(name),
-				Expr(nullptr), spos, end()));
-		}
-	}
-	return Stmt(nullptr);
+	size_t start_index = index;
+	bool is_const = false;
+	if (ACCEPT(Token::CONST))
+		is_const = true;
+	IdentPtr type(p_ident_expr());
+	if (type)
+		return TypeIdentPtr(new TypeIdent(type->name, is_const, spos, end()));
+	index = start_index;
+	return TypeIdentPtr(nullptr);
 }
 
-// func_def ::= FUN IDENT '(' arg_list ')' '{' stmt_list '}' .
-Stmt p_func_def()
+// specifiers ::= ((private | protected | public | internal) | static)
+//                    { ((private | protected | public | internal) | static) } .
+void p_specifiers(AccessModifier& access, StorageClassSpecifier& storage)
+{
+	access    = AccessModifier::DEFAULT;
+	storage   = StorageClassSpecifier::NONE;
+	while (true)
+	{
+		switch (current())
+		{
+			case Token::PRIVATE:   access    = AccessModifier::PRIVATE;       break;
+			case Token::PROTECTED: access    = AccessModifier::PROTECTED;     break;
+			case Token::PUBLIC:    access    = AccessModifier::PUBLIC;        break;
+			case Token::INTERNAL:  access    = AccessModifier::INTERNAL;      break;
+			case Token::STATIC:    storage   = StorageClassSpecifier::STATIC; break;
+			default:
+				return;
+		}
+		next();
+	}
+}
+
+// var_decl ::= specifiers type_ident ident_expr [ '=' expr ] .
+StmtPtr p_var_decl()
 {
 	SourcePosition spos = start();
-	Ident type(nullptr);
-	if (ACCEPT(Token::FUN))
+	size_t save_index = index;
+	AccessModifier access;
+	StorageClassSpecifier storage;
+	p_specifiers(access, storage);
+	TypeIdentPtr type(p_type_ident());
+	if (type)
 	{
-		if (ACCEPT(':'))
+		IdentPtr name(p_ident_expr());
+		if (name)
 		{
-			Ident t(p_ident_expr());
-			if (t)
-				type = std::move(t);
+			if (ACCEPT('='))
+			{
+				ExprPtr expr(p_expr());
+				if (!expr)
+				{
+					std::stringstream ss;
+					ss << "expected expression as right hand side of initial " <<
+						  "assignment but got `" << text() << "' " <<
+						  "(" << current() << ")";
+					SYNTAX_ERROR(ss.str());
+				}
+				return StmtPtr(new VarDecl(access, storage, std::move(type),
+					std::move(name), std::move(expr), spos, end()));
+			}
 			else
 			{
-				std::stringstream ss;
-				ss << "expected a type name identifier after `:', got `"
-				   << text() << " (" << current() << ")";
-				SYNTAX_ERROR(ss.str());
+				return StmtPtr(new VarDecl(access, storage, std::move(type),
+					std::move(name), ExprPtr(nullptr), spos, end()));
 			}
 		}
-		Ident ident(p_ident_expr());
-		EXPECT('(');
-		StmtList args;
-		p_arg_list(args);
-		EXPECT(')');
-		return Stmt(new FuncDef(std::move(type), std::move(ident), std::move(args),
-			p_compound_stmt(), spos, end()));
 	}
-	return Stmt(nullptr);
+	index = save_index;
+	return StmtPtr(nullptr);
 }
 
-// arg_list ::= argument { , argument } .
+// func_def ::= specifiers type_ident ident_expr '(' arg_list ')' compound_stmt .
+StmtPtr p_func_def()
+{
+	SourcePosition spos = start();
+	size_t save_index = index;
+	AccessModifier access;
+	StorageClassSpecifier storage;
+	p_specifiers(access, storage);
+	TypeIdentPtr type(p_type_ident());
+	if (type)
+	{
+		IdentPtr name(p_ident_expr());
+		if (name)
+		{
+			if (ACCEPT('('))
+			{
+				StmtList args; p_arg_list(args);
+				EXPECT(')');
+				StmtPtr stmt(p_compound_stmt());
+				if (!stmt)
+				{
+					std::stringstream ss;
+					ss << "expected a compound statement after function declaration, got `"
+					   << text() << " (" << current() << ")";
+					SYNTAX_ERROR(ss.str());
+				}
+				return StmtPtr(new FuncDef(access, storage, std::move(type),
+					std::move(name), std::move(args), std::move(stmt), spos, end()));
+			}
+		}
+	}
+	index = save_index;
+	return StmtPtr(nullptr);
+}
+
+// arg_list ::= var_decl { ',' var_decl } .
 void p_arg_list(StmtList& lst)
 {
 	do
 	{
-		Stmt stmt(p_argument());
+		StmtPtr stmt(p_var_decl());
 		if (!stmt)
 			break;
 		lst.push_back(std::move(stmt));
@@ -265,70 +298,75 @@ void p_arg_list(StmtList& lst)
 	while (ACCEPT(','));
 }
 
-// argument ::= IDENT [ '=' expr ] .
-Stmt p_argument()
+// ident_list ::= ident_expr { ',' ident_expr } .
+void p_ident_list(ExprList& lst)
 {
-	SourcePosition spos = start();
-	Ident type(nullptr);
-	if (current() == Token::IDENT)
+	do
 	{
-		Ident name(p_ident_expr());
-		if (current() == Token::IDENT)
-		{
-			type = std::move(name);
-			name = std::move(p_ident_expr());
-		}
-		if (ACCEPT('='))
-		{
-			Expr expr(p_expr());
-			if (!expr)
-			{
-				std::stringstream ss;
-				ss << "expected expression as right hand side of " <<
-				      "default argument specification, got `" <<
-				      text() << "' (" << current() << ")";
-				SYNTAX_ERROR(ss.str());
-			}
-			return Stmt(new Argument(std::move(type), std::move(name), std::move(expr), spos, end()));
-		}
-		else
-			return Stmt(new Argument(std::move(type), std::move(name), Expr(nullptr), spos, end()));
+		ExprPtr base(p_ident_expr());
+		if (!base)
+			break;
+		lst.emplace_back(std::move(base));
 	}
-	return Stmt(nullptr);
+	while (ACCEPT(','));
 }
 
-// class_def ::= CLASS IDENT '{' stmt_list '}' .
-Stmt p_class_def()
+// class_def ::= CLASS IDENT [':' ident_list ] '{' stmt_list '}' .
+StmtPtr p_class_def()
 {
 	SourcePosition spos = start();
 	if (ACCEPT(Token::CLASS))
-		return Stmt(new ClassDef(p_ident_expr(), p_compound_stmt(true), spos, end()));
-	return Stmt(nullptr);
+	{
+		IdentPtr name(p_ident_expr());
+		ExprList bases;
+		if (ACCEPT(':'))
+		{
+			p_ident_list(bases);
+			if (bases.empty())
+			{
+				std::stringstream ss;
+				ss << "expected one or more base class identifiers after `:', "
+				   << "got `" << text() << "' (" << current() << ")";
+				SYNTAX_ERROR(ss.str());
+			}
+		}
+		StmtPtr stmt(p_compound_stmt(true));
+		if (!stmt)
+		{
+			std::stringstream ss;
+			ss << "expected compound statement after class declaration, "
+			   << "got `" << text() << "' (" << current() << ")";
+			SYNTAX_ERROR(ss.str());
+		}
+		return StmtPtr(new ClassDef(std::move(name), std::move(bases),
+			std::move(stmt), spos, end()));
+	}
+	return StmtPtr(nullptr);
 }
 
 // case ::= CASE expr ':' .
-Stmt p_case()
+StmtPtr p_case()
 {
 	SourcePosition spos = start();
 	if (ACCEPT(Token::CASE))
 	{
-		Expr expr(p_expr());
+		ExprPtr expr(p_expr());
 		EXPECT(':');
-		return Stmt(new CaseStmt(std::move(expr), p_stmt(), spos, end()));
+		return StmtPtr(new CaseStmt(std::move(expr), p_stmt(), spos, end()));
 	}
-	return Stmt(nullptr);
+	return StmtPtr(nullptr);
 }
 
 // default ::= DEFAULT ':' .
-Stmt p_default()
+StmtPtr p_default()
 {
 	SourcePosition spos = start();
 	if (ACCEPT(Token::DEFAULT))
 	{
 		EXPECT(':');
-		return Stmt(new CaseStmt(Expr(nullptr), p_stmt(), spos, end()));
+		return StmtPtr(new CaseStmt(ExprPtr(nullptr), p_stmt(), spos, end()));
 	}
-	return Stmt(nullptr);
+	return StmtPtr(nullptr);
 }
 
 // case_list ::= { (case | default) } .
@@ -336,12 +374,12 @@ void p_case_list(StmtList& case_list)
 {
 	while (true)
 	{
-		Stmt case_stmt(p_case());
+		StmtPtr case_stmt(p_case());
 		if (case_stmt)
 			case_list.push_back(std::move(case_stmt));
 		else
 		{
-			Stmt def_stmt(p_default());
+			StmtPtr def_stmt(p_default());
 			if (def_stmt)
 				case_list.push_back(std::move(def_stmt));
 			else
@@ -353,31 +391,31 @@ void p_case_list(StmtList& case_list)
 }
 
 // switch_stmt ::= SWITCH '(' expr ')' '{' case_list '}' .
-Stmt p_switch_stmt()
+StmtPtr p_switch_stmt()
 {
 	SourcePosition spos = start();
 	if (ACCEPT(Token::SWITCH))
 	{
 		EXPECT('(');
-		Expr expr(p_expr());
+		ExprPtr expr(p_expr());
 		EXPECT(')');
 		EXPECT('{');
 		StmtList cases;
 		p_case_list(cases);
 		EXPECT('}');
-		return Stmt(new SwitchStmt(std::move(expr), std::move(cases), spos, end()));
+		return StmtPtr(new SwitchStmt(std::move(expr), std::move(cases), spos, end()));
 	}
-	return Stmt(nullptr);
+	return StmtPtr(nullptr);
 }
 
 // if_stmt ::= IF '(' expr ')' stmt [ ELSE stmt ] .
-Stmt p_if_stmt()
+StmtPtr p_if_stmt()
 {
 	SourcePosition spos = start();
 	if (ACCEPT(Token::IF))
 	{
 		EXPECT('(');
-		Expr expr(p_expr());
+		ExprPtr expr(p_expr());
 		if (!expr)
 		{
 			std::stringstream ss;
@@ -386,44 +424,44 @@ Stmt p_if_stmt()
 			SYNTAX_ERROR(ss.str());
 		}
 		EXPECT(')');
-		Stmt if_stmt(p_stmt());
+		StmtPtr if_stmt(p_stmt());
 		if (ACCEPT(Token::ELSE))
 		{
-			Stmt else_stmt(p_stmt());
-			return Stmt(new IfStmt(std::move(expr),
-			                       std::move(if_stmt),
-			                       std::move(else_stmt), spos, end()));
+			StmtPtr else_stmt(p_stmt());
+			return StmtPtr(new IfStmt(std::move(expr),
+			                          std::move(if_stmt),
+			                          std::move(else_stmt), spos, end()));
 		}
 		else
 		{
-			return Stmt(new IfStmt(std::move(expr),
-			                       std::move(if_stmt),
-			                       Stmt(nullptr), spos, end()));
+			return StmtPtr(new IfStmt(std::move(expr),
+			                          std::move(if_stmt),
+			                          StmtPtr(nullptr), spos, end()));
 		}
 	}
-	return Stmt(nullptr);
+	return StmtPtr(nullptr);
 }
 
 // return_stmt ::= RETURN [ expr ] .
-Stmt p_return_stmt()
+StmtPtr p_return_stmt()
 {
 	SourcePosition spos = start();
 	if (ACCEPT(Token::RETURN))
-		return Stmt(new ReturnStmt(std::move(p_expr()), spos, end()));
-	return Stmt(nullptr);
+		return StmtPtr(new ReturnStmt(std::move(p_expr()), spos, end()));
+	return StmtPtr(nullptr);
 }
 
 // break_stmt ::= BREAK .
-Stmt p_break_stmt()
+StmtPtr p_break_stmt()
 {
 	SourcePosition spos = start();
 	if (ACCEPT(Token::BREAK))
-		return Stmt(new BreakStmt(spos, end()));
-	return Stmt(nullptr);
+		return StmtPtr(new BreakStmt(spos, end()));
+	return StmtPtr(nullptr);
 }
 
 // compound_stmt ::= '{' p_stmt_list '}'
-Stmt p_compound_stmt(bool top_level=false)
+StmtPtr p_compound_stmt(bool top_level=false)
 {
 	SourcePosition spos = start();
 	if (ACCEPT('{'))
@@ -431,32 +469,30 @@ Stmt p_compound_stmt(bool top_level=false)
 		StmtList stmts;
 		p_stmt_list(stmts, top_level);
 		EXPECT('}');
-		return Stmt(new CompoundStmt(std::move(stmts), spos, end()));
+		return StmtPtr(new CompoundStmt(std::move(stmts), spos, end()));
 	}
-	return Stmt(nullptr);
+	return StmtPtr(nullptr);
 }
 
 // stmt ::= alias
 //       | import
-//       | var_decl
 //       | func_def
+//       | var_decl
 //       | class_def
 //       | return_stmt
 //       | if_stmt
 //       .
-Stmt p_stmt(bool top_level=false)
+StmtPtr p_stmt(bool top_level=false)
 {
 #define TRY_STMT(name)         \
 	do {                       \
-		Stmt stmt(p_##name()); \
+		StmtPtr stmt(p_##name()); \
 		if (stmt)              \
 			return stmt;       \
 	} while (0)
 
 	TRY_STMT(alias);
 	TRY_STMT(import_stmt);
-	TRY_STMT(var_decl);
-	TRY_STMT(func_def);
 	TRY_STMT(class_def);
 
 	if (!top_level)
@@ -468,7 +504,10 @@ Stmt p_stmt(bool top_level=false)
 		TRY_STMT(break_stmt);
 	}
 
-	return Stmt(nullptr);
+	TRY_STMT(func_def);
+	TRY_STMT(var_decl);
+
+	return StmtPtr(nullptr);
 
 #undef TRY_STMT
 }
@@ -478,7 +517,7 @@ void p_stmt_list(StmtList& lst, bool top_level=false)
 {
 	while (true)
 	{
-		Stmt stmt(p_stmt(top_level));
+		StmtPtr stmt(p_stmt(top_level));
 		if (!stmt)
 			break;
 		lst.push_back(std::move(stmt));
@@ -490,7 +529,7 @@ void p_stmt_list(StmtList& lst, bool top_level=false)
 }
 
 // number_expr ::= ??INTEGER_CONSTANTS?? | FCONST .
-Expr p_number_expr()
+ExprPtr p_number_expr()
 {
 	int base;
 	SourcePosition spos = start();
@@ -506,19 +545,19 @@ Expr p_number_expr()
 	}
 
 	if (base < 0)
-		return Expr(nullptr);
+		return ExprPtr(nullptr);
 
 	try
 	{
 		if (base == 0)
 		{
-			Expr expr(new Float(text(), spos, end()));
+			ExprPtr expr(new Float(text(), spos, end()));
 			next();
 			return expr;
 		}
 		else
 		{
-			Expr expr(new Integer(text(), base, spos, end()));
+			ExprPtr expr(new Integer(text(), base, spos, end()));
 			next();
 			return expr;
 		}
@@ -536,26 +575,26 @@ Expr p_number_expr()
 		SYNTAX_ERROR(ss.str());
 	}
 
-	return Expr(nullptr);
+	return ExprPtr(nullptr);
 }
 
 // paren_expr ::= '(' expr ')' .
-Expr p_paren_expr()
+ExprPtr p_paren_expr()
 {
 	if (ACCEPT('('))
 	{
-		Expr expr(p_expr());
+		ExprPtr expr(p_expr());
 		if (expr)
 		{
 			EXPECT(')');
 			return expr;
 		}
 	}
-	return Expr(nullptr);
+	return ExprPtr(nullptr);
 }
 
 // ident_expr ::= IDENT { '.' IDENT } .
-Ident p_ident_expr()
+IdentPtr p_ident_expr()
 {
 	if (current() == Token::IDENT)
 	{
@@ -579,13 +618,13 @@ Ident p_ident_expr()
 			else
 				break;
 		}
-		return Ident(new IdentImpl(name, spos, end()));
+		return IdentPtr(new Ident(name, spos, end()));
 	}
-	return Ident(nullptr);
+	return IdentPtr(nullptr);
 }
 
 // strlit_expr ::= STR_LIT { STR_LIT } .
-Expr p_strlit_expr()
+ExprPtr p_strlit_expr()
 {
 	SourcePosition spos = start();
 	if (ACCEPT(Token::STR_LIT))
@@ -596,9 +635,9 @@ Expr p_strlit_expr()
 			txt += text().substr(1, text().size() - 2);
 			next();
 		} while (current() == Token::STR_LIT);
-		return Expr(new StrLit(txt, spos, end()));
+		return ExprPtr(new StrLit(txt, spos, end()));
 	}
-	return Expr(nullptr);
+	return ExprPtr(nullptr);
 }
 
 // primary_expr ::= ident_expr
@@ -606,10 +645,10 @@ Expr p_strlit_expr()
 //               | strlit_expr
 //               | paren_expr
 //               .
-Expr p_primary_expr()
+ExprPtr p_primary_expr()
 {
 #define TRY_EXPR(name) \
-	do { Expr expr(p_##name()); if (expr) { return expr; } } while(0)
+	do { ExprPtr expr(p_##name()); if (expr) { return expr; } } while(0)
 
 	TRY_EXPR(ident_expr);
 	TRY_EXPR(number_expr);
@@ -626,32 +665,32 @@ Expr p_primary_expr()
 	SYNTAX_ERROR(ss.str());
 }
 
-	return Expr(nullptr);
+	return ExprPtr(nullptr);
 
 #undef TRY_EXPR
 }
 
 // expr ::= primary_expr [ bin_op_rhs ] .
-Expr p_expr()
+ExprPtr p_expr()
 {
 	SourcePosition spos = start();
-	Expr lhs(p_primary_expr());
+	ExprPtr lhs(p_primary_expr());
 	if (!lhs)
-		return Expr(nullptr);
+		return ExprPtr(nullptr);
 	return p_bin_op_rhs(0, lhs.release(), spos);
 }
 
 // bin_op_rhs ::= { ??OPERATORS?? primary_expr } .
-Expr p_bin_op_rhs(int expr_prec, ExprImpl* lhs, SourcePosition spos)
+ExprPtr p_bin_op_rhs(int expr_prec, Expr* lhs, SourcePosition spos)
 {
 	while (true)
 	{
 		int tok_prec = get_prec();
 		if (tok_prec < expr_prec)
-			return Expr(lhs);
+			return ExprPtr(lhs);
 		char32_t op = current();
 		next();
-		Expr rhs(p_primary_expr());
+		ExprPtr rhs(p_primary_expr());
 		if (!rhs)
 			return nullptr;
 		int next_prec = get_prec();
@@ -661,7 +700,7 @@ Expr p_bin_op_rhs(int expr_prec, ExprImpl* lhs, SourcePosition spos)
 			if (!rhs)
 				return nullptr;
 		}
-		lhs = new BinOp(op, Expr(lhs), std::move(rhs), spos, end());
+		lhs = new BinOp(op, ExprPtr(lhs), std::move(rhs), spos, end());
 		spos = start();
 	}
 }

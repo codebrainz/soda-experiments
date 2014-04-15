@@ -12,7 +12,7 @@ class CaseStmt;
 class ClassDef;
 class CompoundStmt;
 class FuncDef;
-class IdentImpl;
+class Ident;
 class FuncDef;
 class IfStmt;
 class Import;
@@ -21,6 +21,7 @@ class Float;
 class ReturnStmt;
 class StrLit;
 class SwitchStmt;
+class TypeIdent;
 class TU;
 class VarDecl;
 
@@ -36,7 +37,7 @@ public:
 	virtual bool visit(ClassDef&) = 0;
 	virtual bool visit(CompoundStmt&) = 0;
 	virtual bool visit(FuncDef&) = 0;
-	virtual bool visit(IdentImpl&) = 0;
+	virtual bool visit(Ident&) = 0;
 	virtual bool visit(IfStmt&) = 0;
 	virtual bool visit(Import&) = 0;
 	virtual bool visit(Integer&) = 0;
@@ -44,6 +45,7 @@ public:
 	virtual bool visit(ReturnStmt&) = 0;
 	virtual bool visit(StrLit&) = 0;
 	virtual bool visit(SwitchStmt&) = 0;
+	virtual bool visit(TypeIdent&) = 0;
 	virtual bool visit(TU&) = 0;
 	virtual bool visit(VarDecl&) = 0;
 };

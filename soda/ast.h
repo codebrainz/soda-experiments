@@ -20,6 +20,27 @@
 namespace Soda
 {
 
+enum class AccessModifier
+{
+	DEFAULT,
+	PRIVATE,
+	PROTECTED,
+	PUBLIC,
+	INTERNAL,
+};
+
+enum class TypeQualifier
+{
+	NONE=0,
+	CONST=(1<<0),
+};
+
+enum class StorageClassSpecifier
+{
+	NONE,
+	STATIC,
+};
+
 struct Node : public AstVisitable
 {
 	SourceLocation location;
@@ -32,94 +53,102 @@ struct Node : public AstVisitable
 	size_t column() const { return location.column.start; }
 };
 
-struct ExprImpl : public Node
+struct Expr : public Node
 {
 	template< typename... Args >
-	ExprImpl(Args... args) : Node(args...) {}
+	Expr(Args... args) : Node(args...) {}
 };
-typedef std::unique_ptr<ExprImpl> Expr;
+typedef std::unique_ptr<Expr> ExprPtr;
+typedef std::vector<ExprPtr> ExprList;
 
-struct IdentImpl;
-typedef std::unique_ptr<IdentImpl> Ident;
+struct Ident;
+typedef std::unique_ptr<Ident> IdentPtr;
+typedef std::vector<IdentPtr> IdentList;
 
-struct StmtImpl : public Node
+struct TypeIdent;
+typedef std::unique_ptr<TypeIdent> TypeIdentPtr;
+
+struct Stmt : public Node
 {
 	template< typename... Args >
-	StmtImpl(Args... args) : Node(args...) {}
+	Stmt(Args... args) : Node(args...) {}
 };
-typedef std::unique_ptr<StmtImpl> Stmt;
+typedef std::unique_ptr<Stmt> StmtPtr;
 
-typedef std::vector<Stmt> StmtList;
+typedef std::vector<StmtPtr> StmtList;
 
-struct Alias : public StmtImpl
+struct Alias : public Stmt
 {
-	Ident type, alias;
+	IdentPtr type, alias;
 	template< typename... Args >
-	Alias(Ident&& type, Ident&& alias, Args... args)
-		: StmtImpl(args...), type(std::move(type)), alias(std::move(alias)) {}
+	Alias(IdentPtr&& type, IdentPtr&& alias, Args... args)
+		: Stmt(args...), type(std::move(type)), alias(std::move(alias)) {}
 	SODA_NODE_VISITABLE
 };
 
-struct Argument : public StmtImpl
+struct Argument : public Stmt
 {
-	Ident type, name;
-	Expr value;
+	TypeIdentPtr type;
+	IdentPtr name;
+	ExprPtr value;
 	template< typename... Args >
-	Argument(Ident&& type, Ident&& name, Expr&& value, Args... args)
-		: StmtImpl(args...),
+	Argument(TypeIdentPtr&& type, IdentPtr&& name, ExprPtr&& value, Args... args)
+		: Stmt(args...),
 		  type(std::move(type)),
 		  name(std::move(name)),
 		  value(std::move(value)) {}
 	SODA_NODE_VISITABLE
 };
 
-struct BinOp : public ExprImpl
+struct BinOp : public Expr
 {
 	char32_t op;
-	Expr lhs, rhs;
+	ExprPtr lhs, rhs;
 	template< typename... Args >
-	BinOp(char32_t op, Expr&& lhs, Expr&& rhs, Args... args)
-		: ExprImpl(args...), op(op), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
+	BinOp(char32_t op, ExprPtr&& lhs, ExprPtr&& rhs, Args... args)
+		: Expr(args...), op(op), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
 	SODA_NODE_VISITABLE
 };
 
-struct BreakStmt : public StmtImpl
+struct BreakStmt : public Stmt
 {
 	template< typename... Args >
-	BreakStmt(Args... args) : StmtImpl(args...) {}
+	BreakStmt(Args... args) : Stmt(args...) {}
 	SODA_NODE_VISITABLE
 };
 
-struct CaseStmt : public StmtImpl
+struct CaseStmt : public Stmt
 {
-	Expr expr;
-	Stmt stmt;
+	ExprPtr expr;
+	StmtPtr stmt;
 	template< typename... Args >
-	CaseStmt(Expr&& expr, Stmt&& stmt, Args... args)
-		: StmtImpl(args...), expr(std::move(expr)), stmt(std::move(stmt)) {}
+	CaseStmt(ExprPtr&& expr, StmtPtr&& stmt, Args... args)
+		: Stmt(args...), expr(std::move(expr)), stmt(std::move(stmt)) {}
 	SODA_NODE_VISITABLE
 };
 
-struct ClassDef : public StmtImpl
+struct ClassDef : public Stmt
 {
-	Ident name;
-	Stmt block;
+	IdentPtr name;
+	ExprList bases;
+	StmtPtr block;
 	template< typename... Args >
-	ClassDef(Ident&& name, Stmt&& block, Args... args)
-		: StmtImpl(args...), name(std::move(name)), block(std::move(block)) {}
+	ClassDef(IdentPtr&& name, ExprList&& bases, StmtPtr&& block, Args... args)
+		: Stmt(args...), name(std::move(name)), bases(std::move(bases)),
+		  block(std::move(block)) {}
 	SODA_NODE_VISITABLE
 };
 
-struct CompoundStmt : public StmtImpl
+struct CompoundStmt : public Stmt
 {
 	StmtList stmts;
 	template< typename... Args >
 	CompoundStmt(StmtList&& stmts, Args... args)
-		: StmtImpl(args...), stmts(std::move(stmts)) {}
+		: Stmt(args...), stmts(std::move(stmts)) {}
 	SODA_NODE_VISITABLE
 };
 
-struct Float : public ExprImpl
+struct Float : public Expr
 {
 	long double value;
 	Float(std::u32string valstr, const SourcePosition& spos,
@@ -127,14 +156,25 @@ struct Float : public ExprImpl
 	SODA_NODE_VISITABLE
 };
 
-struct FuncDef : public StmtImpl
+struct FuncDef : public Stmt
 {
-	Ident type, name;
+	AccessModifier access;
+	StorageClassSpecifier storage;
+	TypeIdentPtr type;
+	IdentPtr name;
 	StmtList args;
-	Stmt block;
+	StmtPtr block;
 	template< typename... Args >
-	FuncDef(Ident&& type, Ident&& name, StmtList&& args, Stmt&& block, Args... args_)
-		: StmtImpl(args_...),
+	FuncDef(AccessModifier access,
+	        StorageClassSpecifier storage,
+	        TypeIdentPtr&& type,
+	        IdentPtr&& name,
+	        StmtList&& args,
+	        StmtPtr&& block,
+	        Args... args_)
+		: Stmt(args_...),
+		  access(access),
+		  storage(storage),
 		  type(std::move(type)),
 		  name(std::move(name)),
 		  args(std::move(args)),
@@ -142,38 +182,38 @@ struct FuncDef : public StmtImpl
 	SODA_NODE_VISITABLE
 };
 
-struct IdentImpl : public ExprImpl
+struct Ident : public Expr
 {
 	std::u32string name;
 	template< typename... Args >
-	IdentImpl(std::u32string name, Args... args)
-		: ExprImpl(args...), name(name) {}
+	Ident(std::u32string name, Args... args)
+		: Expr(args...), name(name) {}
 	SODA_NODE_VISITABLE
 };
 
-struct IfStmt : public StmtImpl
+struct IfStmt : public Stmt
 {
-	Expr if_expr;
-	Stmt if_stmt, else_stmt;
+	ExprPtr if_expr;
+	StmtPtr if_stmt, else_stmt;
 	template< typename... Args >
-	IfStmt(Expr&& if_expr, Stmt&& if_stmt, Stmt&& else_stmt, Args... args)
-		: StmtImpl(args...),
+	IfStmt(ExprPtr&& if_expr, StmtPtr&& if_stmt, StmtPtr&& else_stmt, Args... args)
+		: Stmt(args...),
 		  if_expr(std::move(if_expr)),
 		  if_stmt(std::move(if_stmt)),
 		  else_stmt(std::move(else_stmt)) {}
 	SODA_NODE_VISITABLE
 };
 
-struct Import : public StmtImpl
+struct Import : public Stmt
 {
-	Ident ident;
+	IdentPtr ident;
 	template< typename... Args >
-	Import(Ident&& ident, Args... args)
-		: StmtImpl(args...), ident(std::move(ident)) {}
+	Import(IdentPtr&& ident, Args... args)
+		: Stmt(args...), ident(std::move(ident)) {}
 	SODA_NODE_VISITABLE
 };
 
-struct Integer : public ExprImpl
+struct Integer : public Expr
 {
 	unsigned long long value;
 	Integer(std::u32string valstr, int base, const SourcePosition& spos,
@@ -181,58 +221,70 @@ struct Integer : public ExprImpl
 	SODA_NODE_VISITABLE
 };
 
-struct ReturnStmt : public StmtImpl
+struct ReturnStmt : public Stmt
 {
-	Expr expr;
+	ExprPtr expr;
 	template< typename... Args >
-	ReturnStmt(Expr&& expr, Args... args)
-		: StmtImpl(args...), expr(std::move(expr)) {}
+	ReturnStmt(ExprPtr&& expr, Args... args)
+		: Stmt(args...), expr(std::move(expr)) {}
 	SODA_NODE_VISITABLE
 };
 
-struct StrLit : public ExprImpl
+struct StrLit : public Expr
 {
 	std::u32string text;
 	template< typename... Args >
 	StrLit(std::u32string text, Args... args)
-		: ExprImpl(args...), text(text) {}
+		: Expr(args...), text(text) {}
 	SODA_NODE_VISITABLE
 };
 
-struct SwitchStmt : public StmtImpl
+struct SwitchStmt : public Stmt
 {
-	Expr expr;
+	ExprPtr expr;
 	StmtList stmts;
 	template< typename... Args >
-	SwitchStmt(Expr&& expr, StmtList&& stmts, Args... args)
-		: StmtImpl(args...), expr(std::move(expr)), stmts(std::move(stmts)) {}
+	SwitchStmt(ExprPtr&& expr, StmtList&& stmts, Args... args)
+		: Stmt(args...), expr(std::move(expr)), stmts(std::move(stmts)) {}
 	SODA_NODE_VISITABLE
 };
 
-struct TU : public StmtImpl
+struct TypeIdent : public Stmt
+{
+	std::u32string name;
+	bool is_const;
+	template< typename... Args >
+	TypeIdent(std::u32string name, bool is_const, Args... args)
+		: Stmt(args...), name(name), is_const(is_const) {}
+	SODA_NODE_VISITABLE
+};
+
+struct TU : public Stmt
 {
 	StmtList stmts;
 	std::string fn;
 	template< typename... Args >
-	TU(std::string fn, Args... args) : StmtImpl(args...), fn(fn) {}
+	TU(std::string fn, Args... args) : Stmt(args...), fn(fn) {}
 	SODA_NODE_VISITABLE
 };
 
-struct VarDecl : public StmtImpl
+struct VarDecl : public Stmt
 {
-	Ident type, name;
-	Expr assign_expr;
-#if 0
+	AccessModifier access;
+	StorageClassSpecifier storage;
+	TypeIdentPtr type;
+	IdentPtr name;
+	ExprPtr assign_expr;
 	template< typename... Args >
-	VarDecl(Ident&& name, Expr&& expr, Args... args)
-		: StmtImpl(args...),
-		  type(nullptr),
-		  name(std::move(name)),
-		  assign_expr(std::move(expr)) {}
-#endif
-	template< typename... Args >
-	VarDecl(Ident&& type, Ident&& name, Expr&& expr, Args... args)
-		: StmtImpl(args...),
+	VarDecl(AccessModifier access,
+	        StorageClassSpecifier storage,
+	        TypeIdentPtr&& type,
+	        IdentPtr&& name,
+	        ExprPtr&& expr,
+	        Args... args)
+		: Stmt(args...),
+		  access(access),
+		  storage(storage),
 		  type(std::move(type)),
 		  name(std::move(name)),
 		  assign_expr(std::move(expr)) {}

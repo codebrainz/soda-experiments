@@ -1,81 +1,9 @@
-import blah;
-import blah import blah
-
-alias somealias1 = anothername1
-alias somealias2 = anothername2;
-
-var someglobalvar1 = 123 + 0xFF;
-var anotherglobalvar1 = 0.33 + "123";
-;;
-fun do_stuff_here()
+class Foo : Blah, JaJa
 {
-    var i = 2+3
-    return i + 123123123;
-};
+    int foo;
 
-/* Multi-line comment */
-
-fun another_do_stuff(a=1, b, c=22/3)
-{
-    return 6/2+3*12;
-}
-
-// foo
-
-fun main(args)
-{
-    if (args)
+    void somefunc()
     {
-        return 1;
+        return foo + 1;
     }
-    else if (1 + 2)
-    {
-        return 2;
-    }
-    else if (3 + 4)
-    {
-        if (4 + 5) {
-            return 3;
-        } else if (3+3) {
-            return 3;
-        } else { }
-    }
-    else
-    {
-        return 4;
-    }
-
-    var foo =1;
-    return foo;
-}
-
-class Foo
-{
-    fun Foo(i=1.01234) { return 1.0; }
-};
-
-fun test_switch()
-{
-    switch (a/2*3+(4/12)%3)
-    {
-        case B+1:
-            break;
-        default:
-            return 1;
-    }
-
-    var foo.bar.baz = 1;
-
-    if (1 == 2) {
-		return 1;
-	}
-    else if (2 != 3)
-    {
-		break;
-	}
-}
-
-fun:int add(a, b)
-{
-	return a + b
 }

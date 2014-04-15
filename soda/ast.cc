@@ -23,7 +23,7 @@ std::string utf8_encode(const std::u32string& u32str)
 
 Integer::Integer(std::u32string valstr, int base, const SourcePosition& spos,
                  const SourcePosition& end)
-	: ExprImpl(spos, end), value(0)
+	: Expr(spos, end), value(0)
 {
 	size_t pos=0;
 	std::string u8val = utf8_encode(valstr);
@@ -35,7 +35,7 @@ Integer::Integer(std::u32string valstr, int base, const SourcePosition& spos,
 
 Float::Float(std::u32string valstr, const SourcePosition& spos,
              const SourcePosition& end)
-	: ExprImpl(spos, end), value(0.0)
+	: Expr(spos, end), value(0.0)
 {
 	size_t pos=0;
 	std::string u8val = utf8_encode(valstr);

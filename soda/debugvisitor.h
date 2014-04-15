@@ -57,8 +57,7 @@ private:
 	{
 		s << indent() << "(argument " << pos(node) << "\n";
 		indent_level++;
-		if (node.type)
-			s << indent() << "(type '" << node.type->name << "')\n";
+		node.type->accept(*this);
 		node.name->accept(*this);
 		if (node.value)
 		{
@@ -119,6 +118,19 @@ private:
 		indent_level++;
 		node.name->accept(*this);
 		s << "\n";
+		if (!node.bases.empty())
+		{
+			s << indent() << "(bases\n";
+			indent_level++;
+			for (size_t i=0; i < node.bases.size(); i++)
+			{
+				node.bases[i]->accept(*this);
+				if (i+1 != node.bases.size())
+					s << "\n";
+			}
+			indent_level--;
+			s << ")\n";
+		}
 		node.block->accept(*this);
 		s << ")";
 		indent_level--;
@@ -148,10 +160,30 @@ private:
 
 	bool visit(FuncDef& node)
 	{
-		s << indent() << "(funcdef " << pos(node) << "\n";
+		s << indent() << "(funcdef ";
+		switch (node.access)
+		{
+			case AccessModifier::DEFAULT:
+				break;
+			case AccessModifier::PRIVATE:
+				s << "private ";
+				break;
+			case AccessModifier::PROTECTED:
+				s << "protected ";
+				break;
+			case AccessModifier::PUBLIC:
+				s << "public ";
+				break;
+			case AccessModifier::INTERNAL:
+				s << "internal ";
+				break;
+		}
+		if (node.storage == StorageClassSpecifier::STATIC)
+			s << "static ";
+		s << pos(node) << "\n";
 		indent_level++;
 		if (node.type)
-			s << indent() << "(type '" << node.type->name << "')\n";
+			node.type->accept(*this);
 		node.name->accept(*this);
 		if (!node.args.empty())
 		{
@@ -170,7 +202,7 @@ private:
 		return true;
 	}
 
-	bool visit(IdentImpl& node)
+	bool visit(Ident& node)
 	{
 		s << indent() << "(ident " << pos(node) << " '" << node.name << "')";
 		return true;
@@ -254,6 +286,15 @@ private:
 		return true;
 	}
 
+	bool visit(TypeIdent& node)
+	{
+		s << indent() << "(type ";
+		if (node.is_const)
+			s << "const ";
+		s << pos(node) << " '" << node.name << "')\n";
+		return true;
+	}
+
 	bool visit(TU& node)
 	{
 		s << indent() << "(tu '" << node.fn << "'\n";
@@ -271,10 +312,30 @@ private:
 
 	bool visit(VarDecl& node)
 	{
-		s << indent() << "(vardecl " << pos(node) << "\n";
+		s << indent() << "(vardecl ";
+		switch (node.access)
+		{
+			case AccessModifier::DEFAULT:
+				break;
+			case AccessModifier::PRIVATE:
+				s << "private ";
+				break;
+			case AccessModifier::PROTECTED:
+				s << "protected ";
+				break;
+			case AccessModifier::PUBLIC:
+				s << "public ";
+				break;
+			case AccessModifier::INTERNAL:
+				s << "internal ";
+				break;
+		}
+		if (node.storage == StorageClassSpecifier::STATIC)
+			s << "static ";
+		s << pos(node) << "\n";
 		indent_level++;
 		if (node.type)
-			s << indent() << "(type " << pos(*node.type) << " '" << node.type->name << "')\n";
+			node.type->accept(*this);
 		node.name->accept(*this);
 		if (node.assign_expr)
 		{

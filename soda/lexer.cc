@@ -123,6 +123,8 @@ Token::Kind next()
 			token.kind = Token::PRIVATE;
 		else if (token.text == U"protected")
 			token.kind = Token::PROTECTED;
+		else if (token.text == U"internal")
+			token.kind = Token::INTERNAL;
 		else
 			token.kind = Token::IDENT;
 	}
