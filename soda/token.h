@@ -4,6 +4,7 @@
 #include <soda/sourcelocation.h>
 #include <limits>
 #include <string>
+#include <vector>
 
 namespace Soda
 {
@@ -138,6 +139,8 @@ struct Token
 		text.swap(rhs.text);
 	}
 };
+
+typedef std::vector<Token> TokenList;
 
 } // namespace Soda
 

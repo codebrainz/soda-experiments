@@ -552,7 +552,7 @@ TokenList tokenize(std::istream& stream)
 	Lexer lex(stream);
 	Token::Kind kind;
 	while ((kind = lex.next()) != Token::END)
-		tokens.push_back(lex.token);
+		tokens.push_back(std::move(lex.token));
 	return std::move(tokens);
 }
 

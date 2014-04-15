@@ -10,79 +10,72 @@ namespace Soda
 
 #define SYNTAX_ERROR(msg) \
 	throw Soda::SyntaxError("syntax error", tu.fn, \
-		SourceLocation(lex.token.location), msg)
+		SourceLocation(tokens[index].location), msg)
 
 struct Parser
 {
 
-Lexer& lex;
 TU& tu;
-Token::Kind last;
-std::deque<Token> saved_tokens;
-bool saving;
-std::stack<SourceLocation> loc_stack;
-SourcePosition end_of_last;
+SourcePosition last_end;
+TokenList tokens;
+size_t index;
 
-Parser(Lexer& lex, TU& tu)
-	: lex(lex), tu(tu), last(lex.next()), saving(false)
+Parser(std::istream& stream, TU& tu)
+	: tu(tu), tokens(std::move(tokenize(stream))), index(0)
 {
+	tokens.push_back(Token());
+	tokens.back().kind = Token::END;
 }
 
-const std::u32string& text() const
+// retrieve the current token kind
+Token::Kind current()
 {
-	return lex.token.text;
+	assert(index < tokens.size());
+	return tokens[index].kind;
 }
 
-// begin recording tokens so we can backtrack later (try not to use this)
-// clears any existing saved tokens
-void save()
-{
-	saved_tokens.clear();
-	saving = true;
-}
-
-// next token should come from oldest saved token after calling this
-void restore()
-{
-	saving = false;
-}
-
-// clear the saved tokens and stop recording future ones
-void reset()
-{
-	saved_tokens.clear();
-	saving = false;
-}
-
-// update 'last' token and return the kind of it (ie. advance in token stream)
+// advance in the tokens and return the next (ie. new current) token kind
 Token::Kind next()
 {
-	end_of_last = lex.token.location.end();
-	if (saving)
-		saved_tokens.push_back(lex.token);
-	else if (!saved_tokens.empty())
+	if (index < (tokens.size() - 1))
 	{
-		lex.token = saved_tokens.front();
-		saved_tokens.pop_front();
-		return (last = lex.token.kind);
+		last_end = tokens[index].location.end();
+		return tokens[++index].kind;
 	}
-	return (last = lex.next());
+	return Token::END;
 }
 
+// look ahead of the current token by n tokens and return its kind
+Token::Kind lookahead(size_t n=1)
+{
+	size_t new_index = index + n;
+	if (new_index < tokens.size())
+		return tokens[new_index].kind;
+	return Token::END;
+}
+
+// gets the text of the current token
+const std::u32string& text() const
+{
+	return tokens[index].text;
+}
+
+// gets the start position of the current token
 SourcePosition start() const
 {
-	return lex.token.location.start();
+	return tokens[index].location.start();
 }
 
+// gets the end position of the previous  token
 SourcePosition end() const
 {
-	return end_of_last;
+	return last_end;
 }
 
-// if the 'last' token is what is expected, advance and return true
+// if the 'current()' token is what is expected, advance and return true
 bool accept(Token::Kind kind, const char *file, unsigned int line)
 {
-	if (last == kind)
+	if (current() == kind)
 	{
 		next();
 		return true;
@@ -90,13 +83,13 @@ bool accept(Token::Kind kind, const char *file, unsigned int line)
 	return false;
 }
 
-// if the 'last' token is what is expected, advance, otherwise throw exception
+// if the 'current()' token is what is expected, advance, otherwise throw exception
 void expect(Token::Kind kind, const char *file, unsigned int line)
 {
 	if (!accept(kind, file, line))
 	{
 		std::stringstream ss;
-		ss << "unexpected token `" << last << "', expecting `" << kind << "'";
+		ss << "unexpected token `" << current() << "', expecting `" << kind << "'";
 #ifndef NDEBUG
 		ss << ".\n\x1B[34m\x1B[47mcallsite\x1B[0m: " << file
 		   << ":\x1B[47m" << line << "\x1B[0m";
@@ -111,7 +104,7 @@ void expect(Token::Kind kind, const char *file, unsigned int line)
 int get_prec()
 {
 	// FIXME: check these
-	switch (last)
+	switch (current())
 	{
 		case Token::LOG_AND:
 		case Token::LOG_OR:
@@ -149,33 +142,6 @@ int get_prec()
 void parse()
 {
 	p_tu(tu);
-}
-
-void push_loc() noexcept
-{
-	try
-	{
-		loc_stack.emplace(lex.token.location);
-	}
-	catch (...) {}
-}
-
-void pop_loc(Node *node=nullptr) noexcept
-{
-	if (node)
-	{
-		try
-		{
-			node->location = loc_stack.top();
-			loc_stack.pop();
-		}
-		catch (...) {}
-	}
-	else
-	{
-		try { loc_stack.pop(); }
-		catch (...) {}
-	}
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -224,7 +190,7 @@ Stmt p_var_decl()
 			{
 				std::stringstream ss;
 				ss << "expected a type name identifier after `:', got `"
-				   << lex.token.text << " (" << last << ")";
+				   << text() << " (" << current() << ")";
 				SYNTAX_ERROR(ss.str());
 			}
 		}
@@ -236,8 +202,8 @@ Stmt p_var_decl()
 			{
 				std::stringstream ss;
 				ss << "expected expression as right hand side of initial " <<
-				      "assignment but got `" << lex.token.text << "' " <<
-				      "(" << last << ")";
+				      "assignment but got `" << text() << "' " <<
+				      "(" << current() << ")";
 				SYNTAX_ERROR(ss.str());
 			}
 			else
@@ -271,7 +237,7 @@ Stmt p_func_def()
 			{
 				std::stringstream ss;
 				ss << "expected a type name identifier after `:', got `"
-				   << lex.token.text << " (" << last << ")";
+				   << text() << " (" << current() << ")";
 				SYNTAX_ERROR(ss.str());
 			}
 		}
@@ -304,10 +270,10 @@ Stmt p_argument()
 {
 	SourcePosition spos = start();
 	Ident type(nullptr);
-	if (last == Token::IDENT)
+	if (current() == Token::IDENT)
 	{
 		Ident name(p_ident_expr());
-		if (last == Token::IDENT)
+		if (current() == Token::IDENT)
 		{
 			type = std::move(name);
 			name = std::move(p_ident_expr());
@@ -320,7 +286,7 @@ Stmt p_argument()
 				std::stringstream ss;
 				ss << "expected expression as right hand side of " <<
 				      "default argument specification, got `" <<
-				      lex.token.text << "' (" << last << ")";
+				      text() << "' (" << current() << ")";
 				SYNTAX_ERROR(ss.str());
 			}
 			return Stmt(new Argument(std::move(type), std::move(name), std::move(expr), spos, end()));
@@ -416,7 +382,7 @@ Stmt p_if_stmt()
 		{
 			std::stringstream ss;
 			ss << "expected condition expression in `if', got " <<
-			      "`" << lex.token.text << "' (" << last << ")";
+			      "`" << text() << "' (" << current() << ")";
 			SYNTAX_ERROR(ss.str());
 		}
 		EXPECT(')');
@@ -529,7 +495,7 @@ Expr p_number_expr()
 	int base;
 	SourcePosition spos = start();
 
-	switch (last)
+	switch (current())
 	{
 		case Token::DEC_ICONST: base = 10; break;
 		case Token::HEX_ICONST: base = 16; break;
@@ -591,7 +557,7 @@ Expr p_paren_expr()
 // ident_expr ::= IDENT { '.' IDENT } .
 Ident p_ident_expr()
 {
-	if (last == Token::IDENT)
+	if (current() == Token::IDENT)
 	{
 		SourcePosition spos = start();
 		std::u32string name(text());
@@ -599,11 +565,11 @@ Ident p_ident_expr()
 		{
 			if (ACCEPT('.'))
 			{
-				if (last != Token::IDENT)
+				if (current() != Token::IDENT)
 				{
 					std::stringstream ss;
 					ss << "expecting an identifier after `.', got `" << text()
-					   << "' (" << lex.token.kind << ")";
+					   << "' (" << current() << ")";
 					SYNTAX_ERROR(ss.str());
 				}
 				name += U".";
@@ -624,13 +590,13 @@ Expr p_strlit_expr()
 	SourcePosition spos = start();
 	if (ACCEPT(Token::STR_LIT))
 	{
-		std::u32string text;
+		std::u32string txt;
 		do
 		{
-			text += lex.token.text.substr(1, lex.token.text.size() - 2);
+			txt += text().substr(1, text().size() - 2);
 			next();
-		} while (last == Token::STR_LIT);
-		return Expr(new StrLit(text, spos, end()));
+		} while (current() == Token::STR_LIT);
+		return Expr(new StrLit(txt, spos, end()));
 	}
 	return Expr(nullptr);
 }
@@ -655,7 +621,7 @@ Expr p_primary_expr()
 	if (text().empty())
 		ss << "syntax error";
 	else
-		ss << "unexpected token `" << text() << "' (" << last << ")";
+		ss << "unexpected token `" << text() << "' (" << current() << ")";
 	ss << ", expecting primary expression";
 	SYNTAX_ERROR(ss.str());
 }
@@ -683,7 +649,7 @@ Expr p_bin_op_rhs(int expr_prec, ExprImpl* lhs, SourcePosition spos)
 		int tok_prec = get_prec();
 		if (tok_prec < expr_prec)
 			return Expr(lhs);
-		char32_t op = last;
+		char32_t op = current();
 		next();
 		Expr rhs(p_primary_expr());
 		if (!rhs)
@@ -706,8 +672,7 @@ Expr p_bin_op_rhs(int expr_prec, ExprImpl* lhs, SourcePosition spos)
 
 void parse(TU& tu, std::istream& stream)
 {
-	Lexer lex(stream);
-	Parser p(lex, tu);
+	Parser p(stream, tu);
 	p.parse();
 }
 
