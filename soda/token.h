@@ -100,6 +100,7 @@ struct Token
 		DEFAULT,
 		BREAK,
 		VOID,
+		NAMESPACE,
 	};
 
 	Kind kind;

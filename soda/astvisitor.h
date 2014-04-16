@@ -11,20 +11,19 @@ class BreakStmt;
 class CaseStmt;
 class ClassDef;
 class CompoundStmt;
+class Float;
 class FuncDef;
 class Ident;
-class FuncDef;
 class IfStmt;
 class Import;
 class Integer;
-class Float;
+class Namespace;
 class ReturnStmt;
 class StrLit;
 class SwitchStmt;
-class TypeIdent;
 class TU;
+class TypeIdent;
 class VarDecl;
-
 
 class AstVisitor
 {
@@ -36,17 +35,18 @@ public:
 	virtual bool visit(CaseStmt&) = 0;
 	virtual bool visit(ClassDef&) = 0;
 	virtual bool visit(CompoundStmt&) = 0;
+	virtual bool visit(Float&) = 0;
 	virtual bool visit(FuncDef&) = 0;
 	virtual bool visit(Ident&) = 0;
 	virtual bool visit(IfStmt&) = 0;
 	virtual bool visit(Import&) = 0;
 	virtual bool visit(Integer&) = 0;
-	virtual bool visit(Float&) = 0;
+	virtual bool visit(Namespace&) = 0;
 	virtual bool visit(ReturnStmt&) = 0;
 	virtual bool visit(StrLit&) = 0;
 	virtual bool visit(SwitchStmt&) = 0;
-	virtual bool visit(TypeIdent&) = 0;
 	virtual bool visit(TU&) = 0;
+	virtual bool visit(TypeIdent&) = 0;
 	virtual bool visit(VarDecl&) = 0;
 };
 

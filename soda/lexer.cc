@@ -125,6 +125,8 @@ Token::Kind next()
 			token.kind = Token::PROTECTED;
 		else if (token.text == U"internal")
 			token.kind = Token::INTERNAL;
+		else if (token.text == U"namespace")
+			token.kind = Token::NAMESPACE;
 		else
 			token.kind = Token::IDENT;
 	}

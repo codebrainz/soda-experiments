@@ -158,6 +158,12 @@ private:
 		return true;
 	}
 
+	bool visit(Float& node)
+	{
+		s << indent() << "(float " << pos(node) << " '" << node.value << "')";
+		return true;
+	}
+
 	bool visit(FuncDef& node)
 	{
 		s << indent() << "(funcdef ";
@@ -240,9 +246,18 @@ private:
 		return true;
 	}
 
-	bool visit(Float& node)
+	bool visit(Namespace& node)
 	{
-		s << indent() << "(float " << pos(node) << " '" << node.value << "')";
+		s << indent() << "(namespace " << pos(node) << "\n";
+		indent_level++;
+		if (node.name)
+		{
+			node.name->accept(*this);
+			s << "\n";
+		}
+		node.stmt->accept(*this);
+		s << ")";
+		indent_level--;
 		return true;
 	}
 

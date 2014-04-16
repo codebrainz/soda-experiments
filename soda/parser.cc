@@ -152,6 +152,28 @@ void p_tu(TU& tu)
 	p_stmt_list(tu.stmts, true);
 }
 
+//> namespace ::= NAMESPACE [ IDENT ] compound_stmt .
+StmtPtr p_namespace_stmt()
+{
+	SourcePosition spos = start();
+	if (ACCEPT(Token::NAMESPACE))
+	{
+		IdentPtr name(nullptr);
+		if (current() == Token::IDENT)
+			name = std::move(p_ident_expr());
+		StmtPtr stmt(p_compound_stmt(true));
+		if (!stmt)
+		{
+			std::stringstream ss;
+			ss << "expected compound statement after namespace declaration, "
+			   << "got `" << text() << "' (" << current() << ")";
+			SYNTAX_ERROR(ss.str());
+		}
+		return StmtPtr(new Namespace(std::move(name), std::move(stmt), spos, end()));
+	}
+	return StmtPtr(nullptr);
+}
+
 //> import_stmt ::= IMPORT IDENT .
 StmtPtr p_import_stmt()
 {
@@ -475,33 +497,37 @@ StmtPtr p_compound_stmt(bool top_level=false)
 }
 
 //> stmt ::= alias
-//>       | import
-//>       | func_def
-//>       | var_decl
-//>       | class_def
-//>       | return_stmt
-//>       | if_stmt
+//>       |  break_stmt
+//>       |  class_def
+//>       |  compound_stmt
+//>       |  if_stmt
+//>       |  import_stmt
+//>       |  return_stmt
+//>       |  switch_stmt
+//>       |  func_def
+//>       |  var_decl
 //>       .
 StmtPtr p_stmt(bool top_level=false)
 {
-#define TRY_STMT(name)         \
-	do {                       \
+#define TRY_STMT(name)            \
+	do {                          \
 		StmtPtr stmt(p_##name()); \
-		if (stmt)              \
-			return stmt;       \
+		if (stmt)                 \
+			return stmt;          \
 	} while (0)
 
 	TRY_STMT(alias);
-	TRY_STMT(import_stmt);
 	TRY_STMT(class_def);
+	TRY_STMT(import_stmt);
+	TRY_STMT(namespace_stmt);
 
 	if (!top_level)
 	{
-		TRY_STMT(return_stmt);
-		TRY_STMT(if_stmt);
-		TRY_STMT(switch_stmt);
-		TRY_STMT(compound_stmt);
 		TRY_STMT(break_stmt);
+		TRY_STMT(compound_stmt);
+		TRY_STMT(if_stmt);
+		TRY_STMT(return_stmt);
+		TRY_STMT(switch_stmt);
 	}
 
 	TRY_STMT(func_def);

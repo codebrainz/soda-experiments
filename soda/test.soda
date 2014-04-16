@@ -1,8 +1,11 @@
-alias uint = SomeUInt;
+import OtherNS.SomeClass
+
+namespace SomeNS
+{
 
 class Foo : Blah, JaJa
 {
-	static const double HI = 1.0
+    static const double HI = 1.0
     int foo = 0xDEADBEEF
     void somefunc()
     {
@@ -21,3 +24,5 @@ class Foo : Blah, JaJa
         }
     }
 }
+
+} // namespace SomeNS

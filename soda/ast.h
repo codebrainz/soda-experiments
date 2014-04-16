@@ -221,6 +221,16 @@ struct Integer : public Expr
 	SODA_NODE_VISITABLE
 };
 
+struct Namespace : public Stmt
+{
+	IdentPtr name;
+	StmtPtr stmt;
+	template< typename... Args >
+	Namespace(IdentPtr&& name, StmtPtr&& stmt, Args... args)
+		: Stmt(args...), name(std::move(name)), stmt(std::move(stmt)) {}
+	SODA_NODE_VISITABLE
+};
+
 struct ReturnStmt : public Stmt
 {
 	ExprPtr expr;
