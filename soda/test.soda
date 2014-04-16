@@ -1,9 +1,23 @@
+alias uint = SomeUInt;
+
 class Foo : Blah, JaJa
 {
-    int foo;
-
+	static const double HI = 1.0
+    int foo = 0xDEADBEEF
     void somefunc()
     {
-        return foo + 1;
+        if (foo == 1)
+        {
+            class DeepClass {}
+            return 0
+        }
+        else
+        {
+            void deep_func()
+            {
+                return 12 * 3
+            }
+            return foo + 1
+        }
     }
 }

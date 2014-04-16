@@ -146,22 +146,22 @@ void parse()
 
 //////////////////////////////////////////////////////////////////////////////
 
-// tu ::= { stmt } .
+//> tu ::= { stmt } .
 void p_tu(TU& tu)
 {
 	p_stmt_list(tu.stmts, true);
 }
 
-// import_stmt ::= IMPORT IDENT .
+//> import_stmt ::= IMPORT IDENT .
 StmtPtr p_import_stmt()
 {
 	SourcePosition spos = start();
 	if (ACCEPT(Token::IMPORT))
-		return StmtPtr(new Import(p_ident_expr(), spos, end()));
+		return StmtPtr(new Import(p_fq_ident_expr(), spos, end()));
 	return StmtPtr(nullptr);
 }
 
-// alias ::= ALIAS IDENT '=' IDENT .
+//> alias ::= ALIAS IDENT '=' IDENT .
 StmtPtr p_alias()
 {
 	SourcePosition spos = start();
@@ -169,12 +169,12 @@ StmtPtr p_alias()
 	{
 		IdentPtr type(p_ident_expr());
 		EXPECT('=');
-		return StmtPtr(new Alias(std::move(type), p_ident_expr(), spos, end()));
+		return StmtPtr(new Alias(std::move(type), p_fq_ident_expr(), spos, end()));
 	}
 	return StmtPtr(nullptr);
 }
 
-// type_ident ::= [const] ident_expr .
+//> type_ident ::= [const] fq_ident_expr .
 TypeIdentPtr p_type_ident()
 {
 	SourcePosition spos = start();
@@ -182,15 +182,15 @@ TypeIdentPtr p_type_ident()
 	bool is_const = false;
 	if (ACCEPT(Token::CONST))
 		is_const = true;
-	IdentPtr type(p_ident_expr());
+	IdentPtr type(p_fq_ident_expr());
 	if (type)
 		return TypeIdentPtr(new TypeIdent(type->name, is_const, spos, end()));
 	index = start_index;
 	return TypeIdentPtr(nullptr);
 }
 
-// specifiers ::= ((private | protected | public | internal) | static)
-//                    { ((private | protected | public | internal) | static) } .
+//> specifiers ::= ((private | protected | public | internal) | static)
+//>                    { ((private | protected | public | internal) | static) } .
 void p_specifiers(AccessModifier& access, StorageClassSpecifier& storage)
 {
 	access    = AccessModifier::DEFAULT;
@@ -211,7 +211,7 @@ void p_specifiers(AccessModifier& access, StorageClassSpecifier& storage)
 	}
 }
 
-// var_decl ::= specifiers type_ident ident_expr [ '=' expr ] .
+//> var_decl ::= specifiers type_ident ident_expr [ '=' expr ] .
 StmtPtr p_var_decl()
 {
 	SourcePosition spos = start();
@@ -250,7 +250,7 @@ StmtPtr p_var_decl()
 	return StmtPtr(nullptr);
 }
 
-// func_def ::= specifiers type_ident ident_expr '(' arg_list ')' compound_stmt .
+//> func_def ::= specifiers type_ident ident_expr '(' arg_list ')' compound_stmt .
 StmtPtr p_func_def()
 {
 	SourcePosition spos = start();
@@ -285,7 +285,7 @@ StmtPtr p_func_def()
 	return StmtPtr(nullptr);
 }
 
-// arg_list ::= var_decl { ',' var_decl } .
+//> arg_list ::= var_decl { ',' var_decl } .
 void p_arg_list(StmtList& lst)
 {
 	do
@@ -298,12 +298,12 @@ void p_arg_list(StmtList& lst)
 	while (ACCEPT(','));
 }
 
-// ident_list ::= ident_expr { ',' ident_expr } .
-void p_ident_list(ExprList& lst)
+//> bases_list ::= fq_ident_expr { ',' fq_ident_expr } .
+void p_bases_list(ExprList& lst)
 {
 	do
 	{
-		ExprPtr base(p_ident_expr());
+		ExprPtr base(p_fq_ident_expr());
 		if (!base)
 			break;
 		lst.emplace_back(std::move(base));
@@ -311,7 +311,7 @@ void p_ident_list(ExprList& lst)
 	while (ACCEPT(','));
 }
 
-// class_def ::= CLASS IDENT [':' ident_list ] '{' stmt_list '}' .
+//> class_def ::= CLASS IDENT [':' bases_list ] '{' stmt_list '}' .
 StmtPtr p_class_def()
 {
 	SourcePosition spos = start();
@@ -321,7 +321,7 @@ StmtPtr p_class_def()
 		ExprList bases;
 		if (ACCEPT(':'))
 		{
-			p_ident_list(bases);
+			p_bases_list(bases);
 			if (bases.empty())
 			{
 				std::stringstream ss;
@@ -344,7 +344,7 @@ StmtPtr p_class_def()
 	return StmtPtr(nullptr);
 }
 
-// case ::= CASE expr ':' .
+//> case ::= CASE expr ':' .
 StmtPtr p_case()
 {
 	SourcePosition spos = start();
@@ -357,7 +357,7 @@ StmtPtr p_case()
 	return StmtPtr(nullptr);
 }
 
-// default ::= DEFAULT ':' .
+//> default ::= DEFAULT ':' .
 StmtPtr p_default()
 {
 	SourcePosition spos = start();
@@ -369,7 +369,7 @@ StmtPtr p_default()
 	return StmtPtr(nullptr);
 }
 
-// case_list ::= { (case | default) } .
+//> case_list ::= { (case | default) } .
 void p_case_list(StmtList& case_list)
 {
 	while (true)
@@ -390,7 +390,7 @@ void p_case_list(StmtList& case_list)
 	}
 }
 
-// switch_stmt ::= SWITCH '(' expr ')' '{' case_list '}' .
+//> switch_stmt ::= SWITCH '(' expr ')' '{' case_list '}' .
 StmtPtr p_switch_stmt()
 {
 	SourcePosition spos = start();
@@ -408,7 +408,7 @@ StmtPtr p_switch_stmt()
 	return StmtPtr(nullptr);
 }
 
-// if_stmt ::= IF '(' expr ')' stmt [ ELSE stmt ] .
+//> if_stmt ::= IF '(' expr ')' stmt [ ELSE stmt ] .
 StmtPtr p_if_stmt()
 {
 	SourcePosition spos = start();
@@ -442,7 +442,7 @@ StmtPtr p_if_stmt()
 	return StmtPtr(nullptr);
 }
 
-// return_stmt ::= RETURN [ expr ] .
+//> return_stmt ::= RETURN [ expr ] .
 StmtPtr p_return_stmt()
 {
 	SourcePosition spos = start();
@@ -451,7 +451,7 @@ StmtPtr p_return_stmt()
 	return StmtPtr(nullptr);
 }
 
-// break_stmt ::= BREAK .
+//> break_stmt ::= BREAK .
 StmtPtr p_break_stmt()
 {
 	SourcePosition spos = start();
@@ -460,7 +460,7 @@ StmtPtr p_break_stmt()
 	return StmtPtr(nullptr);
 }
 
-// compound_stmt ::= '{' p_stmt_list '}'
+//> compound_stmt ::= '{' p_stmt_list '}' .
 StmtPtr p_compound_stmt(bool top_level=false)
 {
 	SourcePosition spos = start();
@@ -474,14 +474,14 @@ StmtPtr p_compound_stmt(bool top_level=false)
 	return StmtPtr(nullptr);
 }
 
-// stmt ::= alias
-//       | import
-//       | func_def
-//       | var_decl
-//       | class_def
-//       | return_stmt
-//       | if_stmt
-//       .
+//> stmt ::= alias
+//>       | import
+//>       | func_def
+//>       | var_decl
+//>       | class_def
+//>       | return_stmt
+//>       | if_stmt
+//>       .
 StmtPtr p_stmt(bool top_level=false)
 {
 #define TRY_STMT(name)         \
@@ -512,7 +512,7 @@ StmtPtr p_stmt(bool top_level=false)
 #undef TRY_STMT
 }
 
-// stmt_list ::= stmt { stmt } .
+//> stmt_list ::= stmt { stmt } .
 void p_stmt_list(StmtList& lst, bool top_level=false)
 {
 	while (true)
@@ -528,7 +528,7 @@ void p_stmt_list(StmtList& lst, bool top_level=false)
 		;
 }
 
-// number_expr ::= ??INTEGER_CONSTANTS?? | FCONST .
+//> number_expr ::= ??INTEGER_CONSTANTS?? | FCONST .
 ExprPtr p_number_expr()
 {
 	int base;
@@ -578,7 +578,7 @@ ExprPtr p_number_expr()
 	return ExprPtr(nullptr);
 }
 
-// paren_expr ::= '(' expr ')' .
+//> paren_expr ::= '(' expr ')' .
 ExprPtr p_paren_expr()
 {
 	if (ACCEPT('('))
@@ -593,28 +593,31 @@ ExprPtr p_paren_expr()
 	return ExprPtr(nullptr);
 }
 
-// ident_expr ::= IDENT { '.' IDENT } .
+//> ident_expr ::= IDENT .
 IdentPtr p_ident_expr()
 {
 	if (current() == Token::IDENT)
 	{
-		SourcePosition spos = start();
 		std::u32string name(text());
-		while (ACCEPT(Token::IDENT))
+		EXPECT(Token::IDENT);
+		return IdentPtr(new Ident(name, start(), end()));
+	}
+	return IdentPtr(nullptr);
+}
+
+//> fq_ident_expr ::= IDENT { '.' IDENT } .
+IdentPtr p_fq_ident_expr()
+{
+	if (current() == Token::IDENT)
+	{
+		SourcePosition spos = start();
+		std::u32string name;
+		while (current() == Token::IDENT)
 		{
-			if (ACCEPT('.'))
-			{
-				if (current() != Token::IDENT)
-				{
-					std::stringstream ss;
-					ss << "expecting an identifier after `.', got `" << text()
-					   << "' (" << current() << ")";
-					SYNTAX_ERROR(ss.str());
-				}
+			name += text();
+			EXPECT(Token::IDENT);
+			if (ACCEPT(Token::DOT))
 				name += U".";
-				name += text();
-				continue;
-			}
 			else
 				break;
 		}
@@ -623,7 +626,7 @@ IdentPtr p_ident_expr()
 	return IdentPtr(nullptr);
 }
 
-// strlit_expr ::= STR_LIT { STR_LIT } .
+//> strlit_expr ::= STR_LIT { STR_LIT } .
 ExprPtr p_strlit_expr()
 {
 	SourcePosition spos = start();
@@ -640,11 +643,11 @@ ExprPtr p_strlit_expr()
 	return ExprPtr(nullptr);
 }
 
-// primary_expr ::= ident_expr
-//               | number_expr
-//               | strlit_expr
-//               | paren_expr
-//               .
+//> primary_expr ::= ident_expr
+//>               | number_expr
+//>               | strlit_expr
+//>               | paren_expr
+//>               .
 ExprPtr p_primary_expr()
 {
 #define TRY_EXPR(name) \
@@ -670,7 +673,7 @@ ExprPtr p_primary_expr()
 #undef TRY_EXPR
 }
 
-// expr ::= primary_expr [ bin_op_rhs ] .
+//> expr ::= primary_expr [ bin_op_rhs ] .
 ExprPtr p_expr()
 {
 	SourcePosition spos = start();
@@ -680,7 +683,7 @@ ExprPtr p_expr()
 	return p_bin_op_rhs(0, lhs.release(), spos);
 }
 
-// bin_op_rhs ::= { ??OPERATORS?? primary_expr } .
+//> bin_op_rhs ::= { ??OPERATORS?? primary_expr } .
 ExprPtr p_bin_op_rhs(int expr_prec, Expr* lhs, SourcePosition spos)
 {
 	while (true)
