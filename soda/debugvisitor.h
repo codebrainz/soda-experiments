@@ -92,6 +92,29 @@ private:
 		return true;
 	}
 
+	bool visit(CallExpr& node)
+	{
+		s << indent() << "(callexpr " << pos(node) << "\n";
+		indent_level++;
+		node.ident->accept(*this);
+		s << "\n";
+		if (!node.args.empty())
+		{
+			s << indent() << "(args\n";
+			indent_level++;
+			for (size_t i = 0; i < node.args.size(); i++)
+			{
+				node.args[i]->accept(*this);
+				if (i+1 != node.args.size())
+					s << "\n";
+			}
+			s << ")";
+			indent_level--;
+		}
+		indent_level--;
+		return true;
+	}
+
 	bool visit(CaseStmt& node)
 	{
 		if (node.expr)
@@ -106,7 +129,8 @@ private:
 			s << indent() << "(default " << pos(node) << "\n";
 			indent_level++;
 		}
-		node.stmt->accept(*this);
+		if (node.stmt)
+			node.stmt->accept(*this);
 		indent_level--;
 		s << ")";
 		return true;
@@ -155,6 +179,20 @@ private:
 			s << ")";
 		}
 		indent_level--;
+		return true;
+	}
+
+	bool visit(EmptyStmt& node)
+	{
+		s << indent() << "(emptystmt " << pos(node) << ")";
+		return true;
+	}
+
+	bool visit(ExprStmt& node)
+	{
+		s << indent() << "(exprstmt " << pos(node) << "\n";
+		node.expr->accept(*this);
+		s << ")";
 		return true;
 	}
 

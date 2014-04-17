@@ -1,28 +1,6 @@
-import OtherNS.SomeClass
-
-namespace SomeNS
-{
-
-class Foo : Blah, JaJa
-{
-    static const double HI = 1.0
-    int foo = 0xDEADBEEF
-    void somefunc()
-    {
-        if (foo == 1)
-        {
-            class DeepClass {}
-            return 0
-        }
-        else
-        {
-            void deep_func()
-            {
-                return 12 * 3
-            }
-            return foo + 1
-        }
-    }
+void foo() {
+  class Foo : bar {
+    void i() {1+2; 2.3;}
+  }
+  int bar = 123;
 }
-
-} // namespace SomeNS

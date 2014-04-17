@@ -117,6 +117,32 @@ struct BreakStmt : public Stmt
 	SODA_NODE_VISITABLE
 };
 
+struct EmptyStmt : public Stmt
+{
+	template< typename... Args >
+	EmptyStmt(Args... args) : Stmt(args...) {}
+	SODA_NODE_VISITABLE
+};
+
+struct ExprStmt : public Stmt
+{
+	ExprPtr expr;
+	template< typename... Args >
+	ExprStmt(ExprPtr&& expr, Args... args)
+		: Stmt(args...), expr(std::move(expr)) {}
+	SODA_NODE_VISITABLE
+};
+
+struct CallExpr : public Expr
+{
+	IdentPtr ident;
+	ExprList args;
+	template< typename... Args >
+	CallExpr(IdentPtr&& ident, ExprList&& args, Args... args_)
+		: Expr(args_...), ident(std::move(ident)), args(std::move(args)) {}
+	SODA_NODE_VISITABLE
+};
+
 struct CaseStmt : public Stmt
 {
 	ExprPtr expr;
