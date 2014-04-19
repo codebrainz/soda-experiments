@@ -127,6 +127,8 @@ Token::Kind next()
 			token.kind = Token::INTERNAL;
 		else if (token.text == U"namespace")
 			token.kind = Token::NAMESPACE;
+		else if (token.text == U"delegate")
+			token.kind = Token::DELEGATE;
 		else
 			token.kind = Token::IDENT;
 	}

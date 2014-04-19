@@ -26,11 +26,16 @@ LIB_SOURCES = \
 	input.cc \
 	lexer.cc \
 	parser.cc \
+	symtab.cc \
+	syntaxerror.cc \
 	token.cc \
 	utils.cc
 
 LIB_OBJECTS = $(LIB_SOURCES:.cc=.o)
-LIB_HEADERS = $(LIB_SOURCES:.cc=.h) sourcelocation.h $(wildcard ast/*.h)
+LIB_HEADERS = $(LIB_SOURCES:.cc=.h) \
+              debugvisitor.h \
+              sourcelocation.h \
+              typeannotator.h
 SODAC_SOURCES = main.cc
 SODAC_OBJECTS = $(SODAC_SOURCES:.cc=.o)
 
@@ -42,7 +47,7 @@ all: sodac
 ####
 # OBJECT FILES
 ####
-%.o: %.cc sodainc.gch debugvisitor.h
+%.o: %.cc sodainc.gch $(LIB_HEADERS)
 	$(V_CXX) -fPIC $(strip $(SODA_CXXFLAGS)) -o $@ $<
 
 ####

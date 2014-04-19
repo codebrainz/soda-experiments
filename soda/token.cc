@@ -105,6 +105,7 @@ namespace std {
 			TS_CASE(BREAK);
 			TS_CASE(VOID);
 			TS_CASE(NAMESPACE);
+			TS_CASE(DELEGATE);
 		}
 		std::stringstream ss;
 		ss << "Unknown Token (" << (int) kind << ")";

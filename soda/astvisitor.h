@@ -12,6 +12,7 @@ class CallExpr;
 class CaseStmt;
 class ClassDef;
 class CompoundStmt;
+class Delegate;
 class EmptyStmt;
 class ExprStmt;
 class Float;
@@ -31,29 +32,30 @@ class VarDecl;
 class AstVisitor
 {
 public:
-	virtual bool visit(Alias&) = 0;
-	virtual bool visit(Argument&) = 0;
-	virtual bool visit(BinOp&) = 0;
-	virtual bool visit(BreakStmt&) = 0;
-	virtual bool visit(CallExpr&) = 0;
-	virtual bool visit(CaseStmt&) = 0;
-	virtual bool visit(ClassDef&) = 0;
-	virtual bool visit(CompoundStmt&) = 0;
-	virtual bool visit(EmptyStmt&) = 0;
-	virtual bool visit(ExprStmt&) = 0;
-	virtual bool visit(Float&) = 0;
-	virtual bool visit(FuncDef&) = 0;
-	virtual bool visit(Ident&) = 0;
-	virtual bool visit(IfStmt&) = 0;
-	virtual bool visit(Import&) = 0;
-	virtual bool visit(Integer&) = 0;
-	virtual bool visit(Namespace&) = 0;
-	virtual bool visit(ReturnStmt&) = 0;
-	virtual bool visit(StrLit&) = 0;
-	virtual bool visit(SwitchStmt&) = 0;
-	virtual bool visit(TU&) = 0;
-	virtual bool visit(TypeIdent&) = 0;
-	virtual bool visit(VarDecl&) = 0;
+	virtual bool visit(Alias&) { return true; }
+	virtual bool visit(Argument&) { return true; }
+	virtual bool visit(BinOp&) { return true; }
+	virtual bool visit(BreakStmt&) { return true; }
+	virtual bool visit(CallExpr&) { return true; }
+	virtual bool visit(CaseStmt&) { return true; }
+	virtual bool visit(ClassDef&) { return true; }
+	virtual bool visit(CompoundStmt&) { return true; }
+	virtual bool visit(Delegate&) { return true; }
+	virtual bool visit(EmptyStmt&) { return true; }
+	virtual bool visit(ExprStmt&) { return true; }
+	virtual bool visit(Float&) { return true; }
+	virtual bool visit(FuncDef&) { return true; }
+	virtual bool visit(Ident&) { return true; }
+	virtual bool visit(IfStmt&) { return true; }
+	virtual bool visit(Import&) { return true; }
+	virtual bool visit(Integer&) { return true; }
+	virtual bool visit(Namespace&) { return true; }
+	virtual bool visit(ReturnStmt&) { return true; }
+	virtual bool visit(StrLit&) { return true; }
+	virtual bool visit(SwitchStmt&) { return true; }
+	virtual bool visit(TU&) { return true; }
+	virtual bool visit(TypeIdent&) { return true; }
+	virtual bool visit(VarDecl&) { return true; }
 };
 
 class AstVisitable

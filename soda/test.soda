@@ -4,3 +4,10 @@ void foo() {
   }
   int bar = 123;
 }
+
+delegate int Compare(int a, int b);
+
+void foo()
+{
+  Compare cmp = 1;
+}

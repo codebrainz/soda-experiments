@@ -182,6 +182,32 @@ private:
 		return true;
 	}
 
+	bool visit(Delegate& node)
+	{
+		s << indent() << "(delegate " << pos(node) << "\n";
+		indent_level++;
+		node.type->accept(*this);
+		s << "\n";
+		node.name->accept(*this);
+		s << "\n";
+		if (!node.args.empty())
+		{
+			s << indent() << "(args\n";
+			indent_level++;
+			for (size_t i = 0; i < node.args.size(); i++)
+			{
+				node.args[i]->accept(*this);
+				if (i+1 != node.args.size())
+					s << "\n";
+			}
+			s << ")";
+			indent_level--;
+		}
+		s << ")";
+		indent_level--;
+		return true;
+	}
+
 	bool visit(EmptyStmt& node)
 	{
 		s << indent() << "(emptystmt " << pos(node) << ")";
@@ -228,6 +254,7 @@ private:
 		indent_level++;
 		if (node.type)
 			node.type->accept(*this);
+		s << "\n";
 		node.name->accept(*this);
 		if (!node.args.empty())
 		{
@@ -344,7 +371,7 @@ private:
 		s << indent() << "(type ";
 		if (node.is_const)
 			s << "const ";
-		s << pos(node) << " '" << node.name << "')\n";
+		s << pos(node) << " '" << node.name << "')";
 		return true;
 	}
 
@@ -389,6 +416,7 @@ private:
 		indent_level++;
 		if (node.type)
 			node.type->accept(*this);
+		s << "\n";
 		node.name->accept(*this);
 		if (node.assign_expr)
 		{

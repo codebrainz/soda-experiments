@@ -226,7 +226,44 @@ StmtPtr p_alias()
 			SYNTAX_ERROR(ss.str());
 		}
 		CHECK_SEMI("alias");
-		return StmtPtr(new Alias(std::move(type), std::move(name), spos, end()));
+		return StmtPtr(new Alias(std::move(type),
+		                         std::move(name),
+		                         spos, end()));
+	}
+	return StmtPtr(nullptr);
+}
+
+//> delegate ::= DELEGATE type_ident IDENT '(' arg_list ')' ';'
+StmtPtr p_delegate_stmt()
+{
+	SourcePosition spos = start();
+	if (ACCEPT(Token::DELEGATE))
+	{
+		TypeIdentPtr type(p_type_ident());
+		if (!type)
+		{
+			std::stringstream ss;
+			ss << "expected type name after `delegate', got `" << text()
+			   << "' (" << current() << ")";
+			SYNTAX_ERROR(ss.str());
+		}
+		IdentPtr name(p_ident_expr());
+		if (!name)
+		{
+			std::stringstream ss;
+			ss << "expected identifier after `delegate' type name, got `"
+			   << text() << "' (" << current() << ")";
+			SYNTAX_ERROR(ss.str());
+		}
+		EXPECT('(');
+		StmtList args;
+		p_arg_list(args);
+		EXPECT(')');
+		CHECK_SEMI("delegate");
+		return StmtPtr(new Delegate(std::move(type),
+		                            std::move(name),
+		                            std::move(args),
+		                            spos, end()));
 	}
 	return StmtPtr(nullptr);
 }
@@ -609,6 +646,7 @@ StmtPtr p_stmt(bool top_level=false)
 	TRY_STMT(class_def);
 	TRY_STMT(import_stmt);
 	TRY_STMT(namespace_stmt);
+	TRY_STMT(delegate_stmt);
 
 	if (!top_level)
 	{
@@ -641,11 +679,7 @@ void p_stmt_list(StmtList& lst, bool top_level=false)
 		if (!stmt)
 			break;
 		lst.push_back(std::move(stmt));
-		//while (ACCEPT(';'))
-		//	;
 	}
-	//while (ACCEPT(';'))
-	//	;
 }
 
 //> number_expr ::= ??INTEGER_CONSTANTS?? | FCONST .
@@ -782,7 +816,9 @@ ExprPtr p_call_expr()
 			}
 			while (ACCEPT(','));
 			EXPECT(')');
-			return ExprPtr(new CallExpr(std::move(ident), std::move(args), spos, end()));
+			return ExprPtr(new CallExpr(std::move(ident),
+			                            std::move(args),
+			                            spos, end()));
 		}
 	}
 	index = start_index;
@@ -875,47 +911,6 @@ void parse(TU& tu)
 {
 	std::ifstream stream(tu.fn);
 	parse(tu, stream);
-}
-
-SyntaxError::SyntaxError(const char *what,
-                         const std::string& filename,
-                         SourceLocation location,
-                         const std::string& message)
-	: std::runtime_error(what),
-	  fn(filename),
-	  location(location),
-	  msg(message)
-{
-}
-
-
-enum Color
-{
-	CLR_BLACK,
-	CLR_RED,
-	CLR_GREEN,
-	CLR_YELLOW,
-	CLR_BLUE,
-	CLR_MAGENTA,
-	CLR_CYAN,
-	CLR_WHITE,
-};
-
-void format_exception(std::ostream& stream, SyntaxError& err)
-{
-	stream << "\x1B[31merror\x1B[0m:\x1B[33m" << err.fn << "\x1B[0m:";
-	if (err.location.line.start != err.location.line.end)
-		stream << "\x1B[35m" << err.location.line.start + 1 << "-" << err.location.line.end + 1 << "\x1B[0m:";
-	else
-		stream << "\x1B[35m" << err.location.line.start + 1 << "\x1B[0m:";
-	if (err.location.column.start != err.location.column.start)
-		stream << "\x1B[36m" << err.location.column.start << "-" << err.location.column.end;
-	else
-		stream << "\x1B[36m" << err.location.column.start;
-	if (!err.msg.empty())
-		stream << "\x1B[0m: " << err.msg << "\n";
-	else
-		stream << "\x1B[0m\n";
 }
 
 } // namespace Soda

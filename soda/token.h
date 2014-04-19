@@ -101,6 +101,7 @@ struct Token
 		BREAK,
 		VOID,
 		NAMESPACE,
+		DELEGATE,
 	};
 
 	Kind kind;

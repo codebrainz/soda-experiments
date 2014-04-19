@@ -53,6 +53,8 @@ struct Node : public AstVisitable
 	size_t column() const { return location.column.start; }
 };
 
+struct Stmt;
+
 struct Expr : public Node
 {
 	template< typename... Args >
@@ -171,6 +173,18 @@ struct CompoundStmt : public Stmt
 	template< typename... Args >
 	CompoundStmt(StmtList&& stmts, Args... args)
 		: Stmt(args...), stmts(std::move(stmts)) {}
+	SODA_NODE_VISITABLE
+};
+
+struct Delegate : public Stmt
+{
+	TypeIdentPtr type;
+	IdentPtr name;
+	StmtList args;
+	template< typename... Args >
+	Delegate(TypeIdentPtr&& type, IdentPtr&& name, StmtList&& args, Args... args_)
+		: Stmt(args_...), type(std::move(type)), name(std::move(name)),
+		  args(std::move(args)) {}
 	SODA_NODE_VISITABLE
 };
 
