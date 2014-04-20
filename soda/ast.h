@@ -195,6 +195,7 @@ struct Delegate : public Stmt
 	TypeIdentPtr type;
 	IdentPtr name;
 	StmtList args;
+	SymbolTable symbols;
 	template< typename... Args >
 	Delegate(TypeIdentPtr&& type, IdentPtr&& name, StmtList&& args, Args... args_)
 		: Stmt(args_...), type(std::move(type)), name(std::move(name)),

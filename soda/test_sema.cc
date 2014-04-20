@@ -15,23 +15,33 @@ int main()
 	TU root("test.soda");
 	std::ifstream stream("test.soda");
 
-	try {
+	try
+	{
 		parse(root, stream);
-	} catch (SyntaxError& err) {
+	}
+	catch (SyntaxError& err)
+	{
 		format_exception(std::cerr, err);
 		return 1;
 	}
 
-	try {
+	try
+	{
 		ParentPointers pp_pass;
 		root.accept(pp_pass);
+
 		TypeAnnotator annot_pass(root);
 		root.accept(annot_pass);
+
 		TypeReferences ref_pass(root);
 		root.accept(ref_pass);
+
 		DebugVisitor printer(std::cout);
 		root.accept(printer);
-	} catch (ParseError& err) {
+
+	}
+	catch (ParseError& err)
+	{
 		format_exception(std::cerr, err);
 		return 2;
 	}

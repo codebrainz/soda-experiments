@@ -1,6 +1,5 @@
 //
-// An AST pass that adds symbol tables to scope nodes which contain
-// types defined in the scope.
+// An AST pass that adds symbol tables to scope nodes.
 //
 
 #ifndef SODA_TYPEANNOTATOR_H
@@ -16,11 +15,10 @@
 namespace Soda
 {
 
-class TypeAnnotator : public AstVisitor
+struct TypeAnnotator : public AstVisitor
 {
 	TU& root;
 
-public:
 	TypeAnnotator(TU& root) : root(root) {}
 
 	std::stack<SymbolTable> scope_stack;
@@ -78,10 +76,22 @@ public:
 		return true;
 	}
 
+	bool visit(Delegate& node)
+	{
+		define(node.name->name, node);
+		begin_scope();
+		for (auto &args: node.args)
+			args->accept(*this);
+		end_scope(node.symbols);
+		return true;
+	}
+
 	bool visit(FuncDef& node)
 	{
 		define(node.name->name, node);
 		begin_scope();
+		for (auto &arg : node.args)
+			arg->accept(*this);
 		node.block->accept(*this);
 		end_scope(node.symbols);
 		return true;

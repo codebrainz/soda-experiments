@@ -11,9 +11,8 @@
 namespace Soda
 {
 
-class TypeReferences : public AstVisitor
+struct TypeReferences : public AstVisitor
 {
-private:
 	typedef std::vector<SymbolTable*> ScopeStack;
 	TU& root;
 	ScopeStack scope_stack;
@@ -53,8 +52,9 @@ private:
 		return nullptr;
 	}
 
-public:
 	TypeReferences(TU& root) : root(root), scope_stack() {}
+
+//////////////////////////////////////////////////////////////////////////////
 
 	bool visit(ClassDef& node)
 	{
@@ -127,6 +127,8 @@ public:
 			node.type->decl = decl;
 		return true;
 	}
+
+//////////////////////////////////////////////////////////////////////////////
 };
 
 } // namespace Soda

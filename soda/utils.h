@@ -2,6 +2,7 @@
 #define SODA_UTILS_H
 
 #include <uchar.h>
+#include <string>
 
 namespace Soda
 {
@@ -16,6 +17,8 @@ bool is_alnum(char32_t ch);
 bool is_hex(char32_t ch);
 bool is_binary(char32_t ch);
 bool is_octal(char32_t ch);
+
+std::string utf8_encode(const std::u32string& u32str);
 
 } // namespace Soda
 

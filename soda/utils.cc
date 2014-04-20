@@ -1,3 +1,4 @@
+#include <soda/sodainc.h>
 #include <soda/utils.h>
 
 // TODO: these functions should probably be inline
@@ -97,6 +98,20 @@ bool is_binary(char32_t ch)
 bool is_octal(char32_t ch)
 {
 	return (ch >= '0' && ch <= '7');
+}
+
+// FIXME: make this good
+std::string utf8_encode(const std::u32string& u32str)
+{
+	const char32_t *buf = u32str.data();
+	size_t len = u32str.size();
+	std::vector<unsigned char> utf8result;
+	utf8::utf32to8(buf, buf + len, std::back_inserter(utf8result));
+	std::string str("");
+	str.reserve(utf8result.size());
+	for (auto &ch : utf8result)
+		str += ch;
+	return str;
 }
 
 } // namespace Soda
