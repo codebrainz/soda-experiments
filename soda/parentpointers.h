@@ -202,7 +202,8 @@ class ParentPointers : public AstVisitor
 	{
 		node.parent = top_parent();
 		push_parent(&node);
-		node.name->accept(*this);
+		if (node.name)
+			node.name->accept(*this);
 		node.block->accept(*this);
 		pop_parent();
 		return true;

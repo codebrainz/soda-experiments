@@ -1,13 +1,10 @@
+class foo{};
 
-class foo1
+void bla()
 {
-
-};
-
-void foo2()
-{
-	class string{};
-	string foo2;
+	if (blah)
+	{
+		class foo{};
+		foo a;
+	}
 }
-
-

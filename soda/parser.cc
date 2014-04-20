@@ -663,7 +663,9 @@ StmtPtr p_stmt(bool top_level=false)
 	if (!top_level)
 		TRY_STMT(expr_stmt);
 
-	TRY_STMT(empty_stmt);
+	// remove empty statements
+	if (p_empty_stmt())
+		return p_stmt(top_level);
 
 	return StmtPtr(nullptr);
 

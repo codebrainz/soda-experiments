@@ -4,6 +4,7 @@
 #include <soda/parentpointers.h>
 #include <soda/typeannotator.h>
 #include <soda/typereferences.h>
+#include <soda/debugvisitor.h>
 
 #include <cassert>
 
@@ -28,11 +29,10 @@ int main()
 		root.accept(annot_pass);
 		TypeReferences ref_pass(root);
 		root.accept(ref_pass);
+		DebugVisitor printer(std::cout);
+		root.accept(printer);
 	} catch (ParseError& err) {
 		format_exception(std::cerr, err);
-		return 2;
-	} catch (...) { // TODO: ParseError, etc...
-		// TODO: format_exception(std::cerr, err);
 		return 2;
 	}
 

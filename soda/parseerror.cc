@@ -34,9 +34,9 @@ void format_exception(std::ostream& stream, ParseError& err)
 	else
 		stream << "\x1B[35m" << err.location.line.start + 1 << "\x1B[0m:";
 	if (err.location.column.start != err.location.column.start)
-		stream << "\x1B[36m" << err.location.column.start << "-" << err.location.column.end;
+		stream << "\x1B[36m" << err.location.column.start - 1 << "-" << err.location.column.end - 1;
 	else
-		stream << "\x1B[36m" << err.location.column.start;
+		stream << "\x1B[36m" << err.location.column.start - 1;
 	if (!err.msg.empty())
 		stream << "\x1B[0m: " << err.msg << "\n";
 	else

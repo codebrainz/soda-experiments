@@ -87,6 +87,14 @@ public:
 		return true;
 	}
 
+	bool visit(IfStmt& node)
+	{
+		node.if_stmt->accept(*this);
+		if (node.else_stmt)
+			node.else_stmt->accept(*this);
+		return true;
+	}
+
 	bool visit(Namespace& node)
 	{
 		begin_scope();

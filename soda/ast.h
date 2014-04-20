@@ -238,9 +238,10 @@ struct FuncDef : public Block
 struct Ident : public Expr
 {
 	std::u32string name;
+	Stmt *decl;
 	template< typename... Args >
 	Ident(std::u32string name, Args... args)
-		: Expr(args...), name(name) {}
+		: Expr(args...), name(name), decl(nullptr) {}
 	SODA_NODE_VISITABLE
 };
 
@@ -320,7 +321,7 @@ struct TypeIdent : public Stmt
 	Stmt* decl;
 	template< typename... Args >
 	TypeIdent(std::u32string name, bool is_const, Args... args)
-		: Stmt(args...), name(name), is_const(is_const) {}
+		: Stmt(args...), name(name), is_const(is_const), decl(nullptr) {}
 	SODA_NODE_VISITABLE
 };
 

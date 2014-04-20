@@ -1,3 +1,7 @@
+//
+// An AST pass that finds declarations for type identifiers and base classes.
+//
+
 #ifndef SODA_TYPEREFERENCES_H
 #define SODA_TYPEREFERENCES_H
 
@@ -24,15 +28,15 @@ private:
 		scope_stack.pop_back();
 	}
 
-	Stmt* find_decl_in_scope(SymbolTable& symtab, TypeIdent& type)
+	Stmt* find_decl_in_scope(SymbolTable& symtab, const std::u32string& name)
 	{
-		auto found = symtab.find(type.name);
+		auto found = symtab.find(name);
 		if (found == symtab.end())
 			return nullptr;
 		return found->second;
 	}
 
-	Stmt* find_decl(TypeIdent& type)
+	Stmt* find_decl(const std::u32string& name)
 	{
 		if (scope_stack.empty())
 			return nullptr;
@@ -41,7 +45,7 @@ private:
 			SymbolTable *symtab = *it;
 			if (symtab)
 			{
-				Stmt *stmt = find_decl_in_scope(*symtab, type);
+				Stmt *stmt = find_decl_in_scope(*symtab, name);
 				if (stmt)
 					return stmt;
 			}
@@ -54,6 +58,22 @@ public:
 
 	bool visit(ClassDef& node)
 	{
+		for (auto &base_expr : node.bases)
+		{
+			Ident* ident = dynamic_cast<Ident*>(base_expr.get());
+			if (ident)
+			{
+				Stmt *decl = find_decl(ident->name);
+				if (!decl)
+				{
+					std::stringstream ss;
+					ss << "unknown type name `" << ident->name << "'";
+					throw ParseError("parse error", root.fn, base_expr->location, ss.str());
+				}
+				else
+					ident->decl = decl;
+			}
+		}
 		begin_scope(node.symbols);
 		node.block->accept(*this);
 		end_scope();
@@ -96,7 +116,7 @@ public:
 
 	bool visit(VarDecl& node)
 	{
-		Stmt *decl = find_decl(*node.type);
+		Stmt *decl = find_decl(node.type->name);
 		if (!decl)
 		{
 			std::stringstream ss;
