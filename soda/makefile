@@ -25,8 +25,8 @@ LIB_SOURCES = \
 	ast.cc \
 	input.cc \
 	lexer.cc \
+	parseerror.cc \
 	parser.cc \
-	symtab.cc \
 	syntaxerror.cc \
 	token.cc \
 	utils.cc
@@ -34,8 +34,10 @@ LIB_SOURCES = \
 LIB_OBJECTS = $(LIB_SOURCES:.cc=.o)
 LIB_HEADERS = $(LIB_SOURCES:.cc=.h) \
               debugvisitor.h \
+              parentpointers.h \
               sourcelocation.h \
-              typeannotator.h
+              typeannotator.h \
+              typereferences.h
 SODAC_SOURCES = main.cc
 SODAC_OBJECTS = $(SODAC_SOURCES:.cc=.o)
 
@@ -47,7 +49,7 @@ all: sodac
 ####
 # OBJECT FILES
 ####
-%.o: %.cc sodainc.gch $(LIB_HEADERS)
+%.o: %.cc sodainc.gch
 	$(V_CXX) -fPIC $(strip $(SODA_CXXFLAGS)) -o $@ $<
 
 ####
@@ -71,7 +73,7 @@ sodac: $(SODAC_OBJECTS) libsoda.so
 ####
 # TESTS
 ####
-TESTS = test_input test_lexer test_parser
+TESTS = test_input test_lexer test_parser test_sema
 
 test_input: test_input.o | libsoda.so
 	$(V_CXXLD) -o $@ $(strip $(SODA_CXXFLAGS)) $^ $(strip $(SODA_LIBS)) -L. -lsoda
@@ -82,11 +84,15 @@ test_lexer: test_lexer.o | libsoda.so
 test_parser: test_parser.o | libsoda.so
 	$(V_CXXLD) -o $@ $(strip $(SODA_CXXFLAGS)) $^ $(strip $(SODA_LIBS)) -L. -lsoda
 
+test_sema: test_sema.o | libsoda.so
+	$(V_CXXLD) -o $@ $(strip $(SODA_CXXFLAGS)) $^ $(strip $(SODA_LIBS)) -L. -lsoda
+
 check: $(TESTS)
 	@export LD_LIBRARY_PATH=.
 	./test_input
 	./test_lexer
 	./test_parser
+	./test_sema
 
 ####
 # MISC
@@ -119,7 +125,7 @@ help:
 	echo "Written and maintained by Matthew Brush <mbrush@codebrainz.ca>"
 
 makefile.deps:
-	$(V_DEPS) -MM  $(strip $(SODA_CXXFLAGS)) $(LIB_SOURCES) $(SODAC_SOURCES) > $@
+	$(V_DEPS) -MM  $(strip $(SODA_CXXFLAGS)) $(LIB_SOURCES) $(SODAC_SOURCES) $(addsuffix .cc,$(TESTS)) > $@
 
 -include makefile.deps
 

@@ -9,6 +9,7 @@
 #include <vector>
 #include <ostream>
 #include <iostream>
+#include <unordered_map>
 #include <cassert>
 
 #define SODA_NODE_VISITABLE                        \
@@ -43,11 +44,13 @@ enum class StorageClassSpecifier
 
 struct Node : public AstVisitable
 {
+	Node *parent;
 	SourceLocation location;
 	Node() {}
 	Node(SourceLocation& location) : location(location) {}
-	Node(const SourcePosition& start_pos, const SourcePosition& end_pos)
-		: location(start_pos, end_pos) {}
+	Node(const SourcePosition& start_pos, const SourcePosition& end_pos,
+	     Node *parent=nullptr)
+		: parent(parent), location(start_pos, end_pos) {}
 	virtual ~Node() {}
 	size_t line() const { return location.line.start; }
 	size_t column() const { return location.column.start; }
@@ -76,8 +79,17 @@ struct Stmt : public Node
 	Stmt(Args... args) : Node(args...) {}
 };
 typedef std::unique_ptr<Stmt> StmtPtr;
-
 typedef std::vector<StmtPtr> StmtList;
+
+typedef std::unordered_map<std::u32string, Stmt*> SymbolTable;
+
+struct Block : public Stmt
+{
+	StmtPtr block;
+	template< typename... Args >
+	Block(StmtPtr&& block, Args... args)
+		: Stmt(args...), block(std::move(block)) {}
+};
 
 struct Alias : public Stmt
 {
@@ -155,21 +167,23 @@ struct CaseStmt : public Stmt
 	SODA_NODE_VISITABLE
 };
 
-struct ClassDef : public Stmt
+struct ClassDef : public Block
 {
 	IdentPtr name;
 	ExprList bases;
-	StmtPtr block;
+	SymbolTable symbols;
 	template< typename... Args >
 	ClassDef(IdentPtr&& name, ExprList&& bases, StmtPtr&& block, Args... args)
-		: Stmt(args...), name(std::move(name)), bases(std::move(bases)),
-		  block(std::move(block)) {}
+		: Block(std::move(block), args...),
+		  name(std::move(name)),
+		  bases(std::move(bases)) {}
 	SODA_NODE_VISITABLE
 };
 
 struct CompoundStmt : public Stmt
 {
 	StmtList stmts;
+	SymbolTable symbols;
 	template< typename... Args >
 	CompoundStmt(StmtList&& stmts, Args... args)
 		: Stmt(args...), stmts(std::move(stmts)) {}
@@ -196,14 +210,14 @@ struct Float : public Expr
 	SODA_NODE_VISITABLE
 };
 
-struct FuncDef : public Stmt
+struct FuncDef : public Block
 {
 	AccessModifier access;
 	StorageClassSpecifier storage;
 	TypeIdentPtr type;
 	IdentPtr name;
 	StmtList args;
-	StmtPtr block;
+	SymbolTable symbols;
 	template< typename... Args >
 	FuncDef(AccessModifier access,
 	        StorageClassSpecifier storage,
@@ -212,13 +226,12 @@ struct FuncDef : public Stmt
 	        StmtList&& args,
 	        StmtPtr&& block,
 	        Args... args_)
-		: Stmt(args_...),
+		: Block(std::move(block), args_...),
 		  access(access),
 		  storage(storage),
 		  type(std::move(type)),
 		  name(std::move(name)),
-		  args(std::move(args)),
-		  block(std::move(block)) {}
+		  args(std::move(args)) {}
 	SODA_NODE_VISITABLE
 };
 
@@ -261,13 +274,13 @@ struct Integer : public Expr
 	SODA_NODE_VISITABLE
 };
 
-struct Namespace : public Stmt
+struct Namespace : public Block
 {
 	IdentPtr name;
-	StmtPtr stmt;
+	SymbolTable symbols;
 	template< typename... Args >
-	Namespace(IdentPtr&& name, StmtPtr&& stmt, Args... args)
-		: Stmt(args...), name(std::move(name)), stmt(std::move(stmt)) {}
+	Namespace(IdentPtr&& name, StmtPtr&& block, Args... args)
+		: Block(std::move(block), args...), name(std::move(name)) {}
 	SODA_NODE_VISITABLE
 };
 
@@ -293,6 +306,7 @@ struct SwitchStmt : public Stmt
 {
 	ExprPtr expr;
 	StmtList stmts;
+	SymbolTable symbols;
 	template< typename... Args >
 	SwitchStmt(ExprPtr&& expr, StmtList&& stmts, Args... args)
 		: Stmt(args...), expr(std::move(expr)), stmts(std::move(stmts)) {}
@@ -303,6 +317,7 @@ struct TypeIdent : public Stmt
 {
 	std::u32string name;
 	bool is_const;
+	Stmt* decl;
 	template< typename... Args >
 	TypeIdent(std::u32string name, bool is_const, Args... args)
 		: Stmt(args...), name(name), is_const(is_const) {}
@@ -312,6 +327,7 @@ struct TypeIdent : public Stmt
 struct TU : public Stmt
 {
 	StmtList stmts;
+	SymbolTable symbols;
 	std::string fn;
 	template< typename... Args >
 	TU(std::string fn, Args... args) : Stmt(args...), fn(fn) {}

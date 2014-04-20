@@ -4,6 +4,7 @@
 /soda/test_input
 /soda/test_lexer
 /soda/test_parser
+/soda/test_sema
 /soda/makefile.deps
 /soda/makefile.*flags
 /soda/sodainc.gch

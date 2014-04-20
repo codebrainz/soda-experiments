@@ -146,7 +146,7 @@ void parse()
 
 //////////////////////////////////////////////////////////////////////////////
 
-//> tu ::= { stmt } .
+//> tu ::= { stmt_list } .
 void p_tu(TU& tu)
 {
 	p_stmt_list(tu.stmts, true);

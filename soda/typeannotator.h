@@ -1,71 +1,116 @@
+//
+// An AST pass that adds symbol tables to scope nodes which contain
+// types defined in the scope.
+//
+
 #ifndef SODA_TYPEANNOTATOR_H
 #define SODA_TYPEANNOTATOR_H
 
 #include <soda/ast.h>
+#include <soda/parseerror.h>
+#include <string>
+#include <unordered_map>
+#include <stack>
+#include <sstream>
 
 namespace Soda
 {
 
 class TypeAnnotator : public AstVisitor
 {
+	TU& root;
+
 public:
-	TypeAnnotator(TU& tu) : tu(tu) {}
+	TypeAnnotator(TU& root) : root(root) {}
 
-private:
-	ScopeStack scopes;
-	TU& tu;
+	std::stack<SymbolTable> scope_stack;
 
-	void enter_scope()
+	void define(const std::u32string& name, Stmt& stmt)
 	{
-		scopes.push(SymbolTable(tu));
+		SymbolTable& symbols = scope_stack.top();
+		auto found = symbols.find(name);
+		if (found == symbols.end())
+			symbols[name] = &stmt;
+		else
+		{
+			std::stringstream ss;
+			ss << "multiple definitions of symbol `" << name
+			   << "' previous declaration was on line "
+			   << found->second->location.line.start + 1
+			   << " at column "
+			   << found->second->location.column.start;
+			throw ParseError("parse error", root.fn,
+				SourceLocation(stmt.location), ss.str());
+		}
 	}
 
-	void leave_scope()
+	void begin_scope()
 	{
-		scopes.pop();
+		scope_stack.push(SymbolTable());
 	}
 
-	bool visit(TU& node)
+	void end_scope(SymbolTable& symbols)
 	{
-		enter_scope();
-		for (auto &stmt : node.stmts)
-			stmt.accept(*this);
-		leave_scope();
+		//symbols.swap(scope_stack.top());
+		symbols = scope_stack.top();
+		scope_stack.pop();
+	}
+
+//////////////////////////////////////////////////////////////////////////////
+
+	// TODO: alias
+
+	bool visit(ClassDef& node)
+	{
+		define(node.name->name, node);
+		begin_scope();
+		node.block->accept(*this);
+		end_scope(node.symbols);
 		return true;
 	}
 
-	bool visit(VarDecl& node)
+	bool visit(CompoundStmt& node)
 	{
-		scopes.top().define(node.name->name, node);
+		begin_scope();
+		for (auto &stmt : node.stmts)
+			stmt->accept(*this);
+		end_scope(node.symbols);
 		return true;
 	}
 
 	bool visit(FuncDef& node)
 	{
-		scopes.top().define(node.name->name, node);
-		enter_scope();
+		define(node.name->name, node);
+		begin_scope();
 		node.block->accept(*this);
-		leave_scope();
-		return true;
-	}
-
-	bool visit(ClassDef& node)
-	{
-		scopes.top().define(node.name->name, node);
-		enter_scope();
-		node.block->accept(*this);
-		leave_scope();
+		end_scope(node.symbols);
 		return true;
 	}
 
 	bool visit(Namespace& node)
 	{
-		scopes.top().define(node.name->name, node);
-		enter_scope();
-		node.stmt->accept(*this);
-		leave_scope();
+		begin_scope();
+		node.block->accept(*this);
+		end_scope(node.symbols);
 		return true;
 	}
+
+	bool visit(TU& node)
+	{
+		begin_scope();
+		for (auto &stmt : node.stmts)
+			stmt->accept(*this);
+		end_scope(node.symbols);
+		return true;
+	}
+
+	bool visit(VarDecl& node)
+	{
+		define(node.name->name, node);
+		return true;
+	}
+
+//////////////////////////////////////////////////////////////////////////////
 };
 
 } // namespace Soda

@@ -1,13 +1,13 @@
-void foo() {
-  class Foo : bar {
-    void i() {1+2; 2.3;}
-  }
-  int bar = 123;
-}
 
-delegate int Compare(int a, int b);
-
-void foo()
+class foo1
 {
-  Compare cmp = 1;
+
+};
+
+void foo2()
+{
+	class string{};
+	string foo2;
 }
+
+

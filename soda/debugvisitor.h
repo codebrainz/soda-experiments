@@ -320,7 +320,7 @@ private:
 			node.name->accept(*this);
 			s << "\n";
 		}
-		node.stmt->accept(*this);
+		node.block->accept(*this);
 		s << ")";
 		indent_level--;
 		return true;

@@ -7,6 +7,7 @@ namespace Soda
 class Alias;
 class Argument;
 class BinOp;
+class Block;
 class BreakStmt;
 class CallExpr;
 class CaseStmt;
@@ -32,9 +33,11 @@ class VarDecl;
 class AstVisitor
 {
 public:
+	virtual ~AstVisitor() {}
 	virtual bool visit(Alias&) { return true; }
 	virtual bool visit(Argument&) { return true; }
 	virtual bool visit(BinOp&) { return true; }
+	virtual bool visit(Block&) { return true; }
 	virtual bool visit(BreakStmt&) { return true; }
 	virtual bool visit(CallExpr&) { return true; }
 	virtual bool visit(CaseStmt&) { return true; }
