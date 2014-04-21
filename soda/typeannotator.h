@@ -103,7 +103,8 @@ struct TypeAnnotator : public AstVisitor
 		begin_scope();
 		for (auto &arg : node.args)
 			arg->accept(*this);
-		node.block->accept(*this);
+		for (auto &stmt : node.stmts)
+			stmt->accept(*this);
 		end_scope(node.symbols);
 		return true;
 	}

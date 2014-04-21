@@ -121,7 +121,10 @@ struct TypeReferences : public AstVisitor
 	bool visit(FuncDef& node)
 	{
 		begin_scope(node.symbols);
-		node.block->accept(*this);
+		for (auto &arg : node.args)
+			arg->accept(*this);
+		for (auto &stmt : node.stmts)
+			stmt->accept(*this);
 		end_scope();
 		return true;
 	}

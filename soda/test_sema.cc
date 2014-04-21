@@ -29,6 +29,7 @@ int main()
 		sema.check();
 		DebugVisitor printer(std::cout);
 		root.accept(printer);
+		//std::cin.get(); // pause
 
 	}
 	catch (ParseError& err)

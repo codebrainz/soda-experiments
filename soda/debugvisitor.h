@@ -280,8 +280,16 @@ private:
 					s << "\n";
 			}
 		}
-		s << "\n";
-		node.block->accept(*this);
+		if (!node.stmts.empty())
+		{
+			s << "\n";
+			for (size_t i = 0; i < node.stmts.size(); i++)
+			{
+				node.stmts[i]->accept(*this);
+				if (i+1 != node.stmts.size())
+					s << "\n";
+			}
+		}
 		s << ")";
 		indent_level--;
 		return true;

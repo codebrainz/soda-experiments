@@ -1,14 +1,14 @@
 
-class string {};
-class foo{ string lala; };
-
-alias foo2 = foo;
-
-void bla()
+void main()
 {
-	if (blah)
+	class int{};
+	int a = 1;
+
+	switch (a)
 	{
-		class foo{};
-		foo a;
+		case 2
+			break;
+		default
+			return;
 	}
 }

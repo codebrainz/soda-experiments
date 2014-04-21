@@ -90,7 +90,8 @@ class ParentPointers : public AstVisitor
 	{
 		node.parent = top_parent();
 		push_parent(&node);
-		node.expr->accept(*this);
+		if (node.expr) // eg. nullptr for `default` case
+			node.expr->accept(*this);
 		node.stmt->accept(*this);
 		pop_parent();
 		return true;
@@ -160,7 +161,8 @@ class ParentPointers : public AstVisitor
 		node.name->accept(*this);
 		for (auto &arg : node.args)
 			arg->accept(*this);
-		node.block->accept(*this);
+		for (auto &stmt : node.stmts)
+			stmt->accept(*this);
 		pop_parent();
 		return true;
 	}

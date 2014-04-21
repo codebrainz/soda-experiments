@@ -160,33 +160,39 @@ struct CallExpr : public Expr
 
 struct CaseStmt : public Stmt
 {
-	ExprPtr expr;
-	StmtPtr stmt;
+	ExprPtr expr; // expression between ( and )
+	StmtPtr stmt; // statement body of the case block
+
 	template< typename... Args >
 	CaseStmt(ExprPtr&& expr, StmtPtr&& stmt, Args... args)
-		: Stmt(args...), expr(std::move(expr)), stmt(std::move(stmt)) {}
+		: Stmt(args...),
+		  expr(std::move(expr)),
+		  stmt(std::move(stmt)) {}
+
 	SODA_NODE_VISITABLE
 };
 
 struct ClassDef : public Stmt
 {
-	IdentPtr name;
-	ExprList bases;
-	StmtList stmts;
-	SymbolTable symbols;
+	IdentPtr name;       // name of the class
+	ExprList bases;      // list of base class names
+	StmtList stmts;      // list of statements between { and }
+	SymbolTable symbols; // names bound between { and }
+
 	template< typename... Args >
 	ClassDef(IdentPtr&& name, ExprList&& bases, StmtList&& stmts, Args... args)
 		: Stmt(args...),
 		  name(std::move(name)),
 		  bases(std::move(bases)),
 		  stmts(std::move(stmts)) {}
+
 	SODA_NODE_VISITABLE
 };
 
 struct CompoundStmt : public Stmt
 {
-	StmtList stmts;
-	SymbolTable symbols;
+	StmtList stmts;      // statements between { and }
+	SymbolTable symbols; // names bound between { and }
 	template< typename... Args >
 	CompoundStmt(StmtList&& stmts, Args... args)
 		: Stmt(args...), stmts(std::move(stmts)) {}
@@ -195,14 +201,18 @@ struct CompoundStmt : public Stmt
 
 struct Delegate : public Stmt
 {
-	TypeIdentPtr type;
-	IdentPtr name;
-	StmtList args;
-	SymbolTable symbols;
+	TypeIdentPtr type;   // return type
+	IdentPtr name;       // delegate name
+	StmtList args;       // arguments list
+	SymbolTable symbols; // names bound in delegate scope (ie. args only)
+
 	template< typename... Args >
 	Delegate(TypeIdentPtr&& type, IdentPtr&& name, StmtList&& args, Args... args_)
-		: Stmt(args_...), type(std::move(type)), name(std::move(name)),
+		: Stmt(args_...),
+		  type(std::move(type)),
+		  name(std::move(name)),
 		  args(std::move(args)) {}
+
 	SODA_NODE_VISITABLE
 };
 
@@ -214,28 +224,31 @@ struct Float : public Expr
 	SODA_NODE_VISITABLE
 };
 
-struct FuncDef : public Block
+struct FuncDef : public Stmt
 {
-	AccessModifier access;
-	StorageClassSpecifier storage;
-	TypeIdentPtr type;
-	IdentPtr name;
-	StmtList args;
-	SymbolTable symbols;
+	AccessModifier access;         // public, private, etc.
+	StorageClassSpecifier storage; // static, etc.
+	TypeIdentPtr type;             // return type
+	IdentPtr name;                 // function name
+	StmtList args, stmts;          // arguments list
+	SymbolTable symbols;           // names bound in this function's scope
+
 	template< typename... Args >
 	FuncDef(AccessModifier access,
 	        StorageClassSpecifier storage,
 	        TypeIdentPtr&& type,
 	        IdentPtr&& name,
 	        StmtList&& args,
-	        StmtPtr&& block,
+	        StmtList&& stmts,
 	        Args... args_)
-		: Block(std::move(block), args_...),
+		: Stmt(args_...),
 		  access(access),
 		  storage(storage),
 		  type(std::move(type)),
 		  name(std::move(name)),
-		  args(std::move(args)) {}
+		  args(std::move(args)),
+		  stmts(std::move(stmts)) {}
+
 	SODA_NODE_VISITABLE
 };
 

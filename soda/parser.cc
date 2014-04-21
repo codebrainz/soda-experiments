@@ -368,16 +368,12 @@ StmtPtr p_func_def()
 			{
 				StmtList args; p_arg_list(args);
 				EXPECT(')');
-				StmtPtr stmt(p_stmt());
-				if (!stmt)
-				{
-					std::stringstream ss;
-					ss << "expected a statement after function declaration, got `"
-					   << text() << " (" << current() << ")";
-					SYNTAX_ERROR(ss.str());
-				}
+				EXPECT('{');
+				StmtList stmts;
+				p_stmt_list(stmts);
+				EXPECT('}');
 				return StmtPtr(new FuncDef(access, storage, std::move(type),
-					std::move(name), std::move(args), std::move(stmt), spos, end()));
+					std::move(name), std::move(args), std::move(stmts), spos, end()));
 			}
 		}
 	}
@@ -440,13 +436,12 @@ StmtPtr p_class_def()
 	return StmtPtr(nullptr);
 }
 
-//> case ::= CASE '(' expr ')' stmt .
+//> case ::= CASE expr stmt .
 StmtPtr p_case()
 {
 	SourcePosition spos = start();
 	if (ACCEPT(Token::CASE))
 	{
-		EXPECT('(');
 		ExprPtr expr(p_expr());
 		if (!expr)
 		{
@@ -455,7 +450,6 @@ StmtPtr p_case()
 			   << "' (" << current() << ")";
 			SYNTAX_ERROR(ss.str());
 		}
-		EXPECT(')');
 		StmtPtr stmt(p_stmt());
 		if (!stmt)
 		{
@@ -464,7 +458,7 @@ StmtPtr p_case()
 			   << "' (" << current() << ")";
 			SYNTAX_ERROR(ss.str());
 		}
-		return StmtPtr(new CaseStmt(std::move(expr), std::move(p_stmt()), spos, end()));
+		return StmtPtr(new CaseStmt(std::move(expr), std::move(stmt), spos, end()));
 	}
 	return StmtPtr(nullptr);
 }
