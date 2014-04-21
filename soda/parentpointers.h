@@ -207,7 +207,8 @@ class ParentPointers : public AstVisitor
 		push_parent(&node);
 		if (node.name)
 			node.name->accept(*this);
-		node.block->accept(*this);
+		for (auto &stmt : node.stmts)
+			stmt->accept(*this);
 		pop_parent();
 		return true;
 	}

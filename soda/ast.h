@@ -132,22 +132,6 @@ struct BreakStmt : public Stmt
 	SODA_NODE_VISITABLE
 };
 
-struct EmptyStmt : public Stmt
-{
-	template< typename... Args >
-	EmptyStmt(Args... args) : Stmt(args...) {}
-	SODA_NODE_VISITABLE
-};
-
-struct ExprStmt : public Stmt
-{
-	ExprPtr expr;
-	template< typename... Args >
-	ExprStmt(ExprPtr&& expr, Args... args)
-		: Stmt(args...), expr(std::move(expr)) {}
-	SODA_NODE_VISITABLE
-};
-
 struct CallExpr : public Expr
 {
 	IdentPtr ident;
@@ -171,6 +155,33 @@ struct CaseStmt : public Stmt
 
 	SODA_NODE_VISITABLE
 };
+
+struct CCodeParam : public Stmt
+{
+	std::u32string name, value;
+	template< typename... Args >
+	CCodeParam(std::u32string&& name, std::u32string&& value, Args... args)
+		: Stmt(args...),
+		  name(std::move(name)),
+		  value(std::move(value)) {}
+
+	SODA_NODE_VISITABLE
+};
+
+typedef std::unique_ptr<CCodeParam> CCodeParamPtr;
+typedef std::vector<CCodeParamPtr> CCodeParamList;
+
+struct CCode : public Stmt
+{
+	CCodeParamList params;
+	template< typename... Args >
+	CCode(CCodeParamList&& params, Args... args)
+		: Stmt(args...), params(std::move(params)) {}
+
+	SODA_NODE_VISITABLE
+};
+
+typedef std::unique_ptr<CCode> CCodePtr;
 
 struct ClassDef : public Stmt
 {
@@ -216,11 +227,44 @@ struct Delegate : public Stmt
 	SODA_NODE_VISITABLE
 };
 
+struct EmptyStmt : public Stmt
+{
+	template< typename... Args >
+	EmptyStmt(Args... args) : Stmt(args...) {}
+	SODA_NODE_VISITABLE
+};
+
+struct ExprStmt : public Stmt
+{
+	ExprPtr expr;
+	template< typename... Args >
+	ExprStmt(ExprPtr&& expr, Args... args)
+		: Stmt(args...), expr(std::move(expr)) {}
+	SODA_NODE_VISITABLE
+};
+
 struct Float : public Expr
 {
 	long double value;
 	Float(std::u32string valstr, const SourcePosition& spos,
 		const SourcePosition& end);
+	SODA_NODE_VISITABLE
+};
+
+struct FuncDecl : public Stmt
+{
+	TypeIdentPtr type;
+	IdentPtr name;
+	StmtList args;
+	CCodePtr ccode;
+
+	template< typename... Args >
+	FuncDecl(TypeIdentPtr&& type, IdentPtr&& name, StmtList&& args, Args... args_)
+		: Stmt(args_...),
+		  type(std::move(type)),
+		  name(std::move(name)),
+		  args(std::move(args)) {}
+
 	SODA_NODE_VISITABLE
 };
 
@@ -292,13 +336,16 @@ struct Integer : public Expr
 	SODA_NODE_VISITABLE
 };
 
-struct Namespace : public Block
+struct Namespace : public Stmt
 {
 	IdentPtr name;
+	StmtList stmts;
 	SymbolTable symbols;
 	template< typename... Args >
-	Namespace(IdentPtr&& name, StmtPtr&& block, Args... args)
-		: Block(std::move(block), args...), name(std::move(name)) {}
+	Namespace(IdentPtr&& name, StmtList&& stmts, Args... args)
+		: Stmt(args...),
+		  name(std::move(name)),
+		  stmts(std::move(stmts)) {}
 	SODA_NODE_VISITABLE
 };
 

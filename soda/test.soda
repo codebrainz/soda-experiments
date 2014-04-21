@@ -1,14 +1,23 @@
 
-void main()
-{
-	class int{};
-	int a = 1;
 
-	switch (a)
+namespace a
+{
+class fake {
+	class la{};
+	la i;
+};
+	fake a1 = 1;
+	namespace b
 	{
-		case 2
-			break;
-		default
-			return;
+		fake b1 = 1;
+		fake func_b1() { fake b1 = 2; }
+		namespace c
+		{
+			fake c1 = 1;
+			namespace d
+			{
+				fake d1 = 1;
+			}
+		}
 	}
 }

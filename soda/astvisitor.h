@@ -11,12 +11,15 @@ class Block;
 class BreakStmt;
 class CallExpr;
 class CaseStmt;
+class CCode;
+class CCodeParam;
 class ClassDef;
 class CompoundStmt;
 class Delegate;
 class EmptyStmt;
 class ExprStmt;
 class Float;
+class FuncDecl;
 class FuncDef;
 class Ident;
 class IfStmt;
@@ -41,12 +44,15 @@ public:
 	virtual bool visit(BreakStmt&) { return true; }
 	virtual bool visit(CallExpr&) { return true; }
 	virtual bool visit(CaseStmt&) { return true; }
+	virtual bool visit(CCode&) { return true; }
+	virtual bool visit(CCodeParam&) { return true; }
 	virtual bool visit(ClassDef&) { return true; }
 	virtual bool visit(CompoundStmt&) { return true; }
 	virtual bool visit(Delegate&) { return true; }
 	virtual bool visit(EmptyStmt&) { return true; }
 	virtual bool visit(ExprStmt&) { return true; }
 	virtual bool visit(Float&) { return true; }
+	virtual bool visit(FuncDecl&) { return true; }
 	virtual bool visit(FuncDef&) { return true; }
 	virtual bool visit(Ident&) { return true; }
 	virtual bool visit(IfStmt&) { return true; }

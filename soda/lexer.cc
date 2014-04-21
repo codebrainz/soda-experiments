@@ -129,6 +129,8 @@ Token::Kind next()
 			token.kind = Token::NAMESPACE;
 		else if (token.text == U"delegate")
 			token.kind = Token::DELEGATE;
+		else if (token.text == U"CCode")
+			token.kind = Token::CCODE;
 		else
 			token.kind = Token::IDENT;
 	}

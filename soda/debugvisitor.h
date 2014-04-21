@@ -137,6 +137,31 @@ private:
 		return true;
 	}
 
+	bool visit(CCode& node)
+	{
+		s << indent() << "(ccode " << pos(node);
+		if (!node.params.empty())
+		{
+			s << "\n";
+			indent_level++;
+			for (size_t i = 0; i < node.params.size(); i++)
+			{
+				node.params[i]->accept(*this);
+				if (i+1 != node.params.size())
+					s << "\n";
+			}
+			indent_level--;
+			s << ")";
+		}
+		return true;
+	}
+
+	bool visit(CCodeParam& node)
+	{
+		s << indent() << "(ccodeparam " << pos(node) << " '" << node.name << "' '" << node.value << "')";
+		return true;
+	}
+
 	bool visit(ClassDef& node)
 	{
 		s << indent() << "(classdef " << pos(node) << "\n";
@@ -242,6 +267,34 @@ private:
 		return true;
 	}
 
+	bool visit(FuncDecl& node)
+	{
+		s << indent() << "(funcdecl " << pos(node) << "\n";
+		indent_level++;
+		node.ccode->accept(*this);
+		s << "\n";
+		node.type->accept(*this);
+		s << "\n";
+		node.name->accept(*this);
+		s << "\n";
+		if (!node.args.empty())
+		{
+			s << indent() << "(args\n";
+			indent_level++;
+			for (size_t i = 0; i < node.args.size(); i++)
+			{
+				node.args[i]->accept(*this);
+				if (i+1 != node.args.size())
+					s << "\n";
+			}
+			indent_level--;
+			s << ")";
+		}
+		s << ")";
+		indent_level--;
+		return true;
+	}
+
 	bool visit(FuncDef& node)
 	{
 		s << indent() << "(funcdef ";
@@ -342,7 +395,19 @@ private:
 			node.name->accept(*this);
 			s << "\n";
 		}
-		node.block->accept(*this);
+		if (!node.stmts.empty())
+		{
+			s << indent() << "(stmts\n";
+			indent_level++;
+			for (size_t i = 0; i < node.stmts.size(); i++)
+			{
+				node.stmts[i]->accept(*this);
+				if (i+1 != node.stmts.size())
+					s << "\n";
+			}
+			indent_level--;
+			s << ")";
+		}
 		s << ")";
 		indent_level--;
 		return true;

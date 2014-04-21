@@ -14,6 +14,14 @@ namespace Soda
 	throw Soda::SyntaxError("syntax error", tu.fn, \
 		SourceLocation(tokens[index].location), msg)
 
+#define CHECK_SEMI(exp)                                             \
+	do { if (!ACCEPT(';')) {                                        \
+		std::stringstream ss;                                       \
+		ss << "expected semicolon at end of `" exp "' statement, got `" \
+		   << text() << "' (" << current() << ")";                  \
+		SYNTAX_ERROR(ss.str());                                     \
+	} } while (0)
+
 struct Parser
 {
 
@@ -148,13 +156,103 @@ void parse()
 
 //////////////////////////////////////////////////////////////////////////////
 
+//> func_decl ::= type_ident ident_expr '(' arg_list ')' ';' .
+StmtPtr p_func_decl()
+{
+	SourcePosition spos = start();
+	size_t save_index = index;
+	TypeIdentPtr type(p_type_ident());
+	if (type)
+	{
+		IdentPtr name(p_ident_expr());
+		if (name)
+		{
+			if (ACCEPT('('))
+			{
+				StmtList args; p_arg_list(args);
+				EXPECT(')');
+				CHECK_SEMI("external function declaration");
+				return StmtPtr(new FuncDecl(std::move(type), std::move(name),
+					std::move(args), spos, end()));
+			}
+		}
+	}
+	index = save_index;
+	return StmtPtr(nullptr);
+}
+
+//> ccode ::= '[' CCODE [ccode_params] ']' .
+StmtPtr p_ccode()
+{
+	SourcePosition spos = start();
+	size_t saved_index = index;
+	if (ACCEPT('['))
+	{
+		EXPECT(Token::CCODE);
+		CCodeParamList params;
+		p_ccode_params(params);
+		EXPECT(']');
+		CCodePtr ccptr(new CCode(std::move(params), spos, end()));
+		StmtPtr fdecl(p_func_decl());
+		if (fdecl)
+		{
+			FuncDecl *fdeclp = dynamic_cast<FuncDecl*>(fdecl.get());
+			assert(fdeclp);
+			fdeclp->ccode = std::move(ccptr);
+			return std::move(fdecl);
+		}
+		else
+		{
+			std::stringstream ss;
+			ss << "expected external function declaration after `[CCode]' "
+			   << "specification, got `" << text() << "' (" << current() << ")";
+			SYNTAX_ERROR(ss.str());
+		}
+	}
+	index = saved_index;
+	return StmtPtr(nullptr);
+}
+
+//> ccode_params ::= '(' ccode_param { ',' ccode_param } ')' .
+void p_ccode_params(CCodeParamList& lst)
+{
+	if (ACCEPT('('))
+	{
+		do
+		{
+			CCodeParamPtr cp(p_ccode_param());
+			if (!cp)
+				break;
+			else
+				lst.push_back(std::move(cp));
+		}
+		while (ACCEPT(','));
+		EXPECT(')');
+	}
+}
+
+//> ccode_param ::= IDENT '=' STR_LIT .
+CCodeParamPtr p_ccode_param()
+{
+	SourcePosition spos = start();
+	std::u32string name(text());
+	if (ACCEPT(Token::IDENT))
+	{
+		EXPECT('=');
+		std::u32string value(text());
+		EXPECT(Token::STR_LIT);
+		return CCodeParamPtr(new CCodeParam(std::move(name), std::move(value), spos, end()));
+	}
+	return CCodeParamPtr(nullptr);
+}
+
 //> tu ::= { stmt_list } .
 void p_tu(TU& tu)
 {
 	p_stmt_list(tu.stmts, true);
 }
 
-//> namespace ::= NAMESPACE [ IDENT ] compound_stmt ';' .
+//> namespace ::= NAMESPACE [ IDENT ] '{' stmt_list '}' .
 StmtPtr p_namespace_stmt()
 {
 	SourcePosition spos = start();
@@ -163,26 +261,14 @@ StmtPtr p_namespace_stmt()
 		IdentPtr name(nullptr);
 		if (current() == Token::IDENT)
 			name = std::move(p_ident_expr());
-		StmtPtr stmt(p_compound_stmt(true));
-		if (!stmt)
-		{
-			std::stringstream ss;
-			ss << "expected compound statement after namespace declaration, "
-			   << "got `" << text() << "' (" << current() << ")";
-			SYNTAX_ERROR(ss.str());
-		}
-		return StmtPtr(new Namespace(std::move(name), std::move(stmt), spos, end()));
+		EXPECT('{');
+		StmtList stmts;
+		p_stmt_list(stmts, true);
+		EXPECT('}');
+		return StmtPtr(new Namespace(std::move(name), std::move(stmts), spos, end()));
 	}
 	return StmtPtr(nullptr);
 }
-
-#define CHECK_SEMI(exp)                                             \
-	do { if (!ACCEPT(';')) {                                        \
-		std::stringstream ss;                                       \
-		ss << "expected semicolon at end of `" exp "' statement, got `" \
-		   << text() << "' (" << current() << ")";                  \
-		SYNTAX_ERROR(ss.str());                                     \
-	} } while (0)
 
 //> import_stmt ::= IMPORT fq_ident_expr ';' .
 StmtPtr p_import_stmt()
@@ -633,6 +719,8 @@ StmtPtr p_stmt(bool top_level=false)
 {
 #define TRY_STMT(name) \
 	do { StmtPtr stmt(p_##name()); if (stmt) { return stmt; } } while (0)
+
+	TRY_STMT(ccode);
 
 	TRY_STMT(alias);
 	TRY_STMT(class_def);

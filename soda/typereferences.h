@@ -132,7 +132,8 @@ struct TypeReferences : public AstVisitor
 	bool visit(Namespace& node)
 	{
 		begin_scope(node.symbols);
-		node.block->accept(*this);
+		for (auto &stmt : node.stmts)
+			stmt->accept(*this);
 		end_scope();
 		return true;
 	}

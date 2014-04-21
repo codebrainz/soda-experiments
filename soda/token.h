@@ -102,6 +102,7 @@ struct Token
 		VOID,
 		NAMESPACE,
 		DELEGATE,
+		CCODE,
 	};
 
 	Kind kind;
