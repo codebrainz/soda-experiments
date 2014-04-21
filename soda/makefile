@@ -27,6 +27,7 @@ LIB_SOURCES = \
 	lexer.cc \
 	parseerror.cc \
 	parser.cc \
+	sema.cc \
 	syntaxerror.cc \
 	token.cc \
 	utils.cc

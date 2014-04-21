@@ -3,6 +3,7 @@
 
 #include <soda/ast.h>
 #include <ostream>
+#include <sstream>
 
 namespace Soda
 {
@@ -141,7 +142,8 @@ private:
 		s << indent() << "(classdef " << pos(node) << "\n";
 		indent_level++;
 		node.name->accept(*this);
-		s << "\n";
+		if (!node.bases.empty() || !node.stmts.empty())
+			s << "\n";
 		if (!node.bases.empty())
 		{
 			s << indent() << "(bases\n";
@@ -155,7 +157,19 @@ private:
 			indent_level--;
 			s << ")\n";
 		}
-		node.block->accept(*this);
+		if (!node.stmts.empty())
+		{
+			s << indent() << "(stmts\n";
+			indent_level++;
+			for (size_t i = 0; i < node.stmts.size(); i++)
+			{
+				node.stmts[i]->accept(*this);
+				if (i+1 != node.stmts.size())
+					s << "\n";
+			}
+			indent_level--;
+			s << ")";
+		}
 		s << ")";
 		indent_level--;
 		return true;

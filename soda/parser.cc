@@ -4,6 +4,8 @@
 #include <deque>
 #include <cassert>
 #include <stack>
+#include <sstream>
+#include <fstream>
 
 namespace Soda
 {
@@ -217,8 +219,8 @@ StmtPtr p_alias()
 			SYNTAX_ERROR(ss.str());
 		}
 		EXPECT('=');
-		IdentPtr name(p_fq_ident_expr());
-		if (!name)
+		TypeIdentPtr alias(p_type_ident());
+		if (!alias)
 		{
 			std::stringstream ss;
 			ss << "expected identifier after `=', got `" << text()
@@ -227,7 +229,7 @@ StmtPtr p_alias()
 		}
 		CHECK_SEMI("alias");
 		return StmtPtr(new Alias(std::move(type),
-		                         std::move(name),
+		                         std::move(alias),
 		                         spos, end()));
 	}
 	return StmtPtr(nullptr);
@@ -428,16 +430,12 @@ StmtPtr p_class_def()
 				SYNTAX_ERROR(ss.str());
 			}
 		}
-		StmtPtr stmt(p_compound_stmt(true));
-		if (!stmt)
-		{
-			std::stringstream ss;
-			ss << "expected compound statement after class declaration, "
-			   << "got `" << text() << "' (" << current() << ")";
-			SYNTAX_ERROR(ss.str());
-		}
+		EXPECT('{');
+		StmtList stmts;
+		p_stmt_list(stmts, true);
+		EXPECT('}');
 		return StmtPtr(new ClassDef(std::move(name), std::move(bases),
-			std::move(stmt), spos, end()));
+			std::move(stmts), spos, end()));
 	}
 	return StmtPtr(nullptr);
 }

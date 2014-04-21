@@ -56,6 +56,34 @@ struct TypeReferences : public AstVisitor
 
 //////////////////////////////////////////////////////////////////////////////
 
+	bool visit(Alias& node)
+	{
+		Stmt *decl = find_decl(node.alias->name);
+		if (!decl)
+		{
+			std::stringstream ss;
+			ss << "unknown type name `" << node.alias->name << "'";
+			throw ParseError("parse error", root.fn, node.alias->location, ss.str());
+		}
+		else
+			node.alias->decl = decl;
+		return true;
+	}
+
+	bool visit(Argument& node)
+	{
+		Stmt *decl = find_decl(node.type->name);
+		if (!decl)
+		{
+			std::stringstream ss;
+			ss << "unknown type name `" << node.type->name << "'";
+			throw ParseError("parse error", root.fn, node.type->location, ss.str());
+		}
+		else
+			node.type->decl = decl;
+		return true;
+	}
+
 	bool visit(ClassDef& node)
 	{
 		for (auto &base_expr : node.bases)
@@ -75,7 +103,8 @@ struct TypeReferences : public AstVisitor
 			}
 		}
 		begin_scope(node.symbols);
-		node.block->accept(*this);
+		for (auto &stmt : node.stmts)
+			stmt->accept(*this);
 		end_scope();
 		return true;
 	}

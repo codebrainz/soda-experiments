@@ -2,6 +2,7 @@
 #include <soda/parser.h>
 #include <soda/debugvisitor.h>
 #include <cassert>
+#include <fstream>
 
 using namespace Soda;
 

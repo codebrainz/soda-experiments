@@ -1,5 +1,7 @@
 #include <soda/sodainc.h>
 #include <soda/utils.h>
+#include <vector>
+#include <utf8/utf8.h>
 
 // TODO: these functions should probably be inline
 

@@ -56,13 +56,24 @@ struct TypeAnnotator : public AstVisitor
 
 //////////////////////////////////////////////////////////////////////////////
 
-	// TODO: alias
+	bool visit(Alias& node)
+	{
+		define(node.type->name, node);
+		return true;
+	}
+
+	bool visit(Argument& node)
+	{
+		define(node.name->name, node);
+		return true;
+	}
 
 	bool visit(ClassDef& node)
 	{
 		define(node.name->name, node);
 		begin_scope();
-		node.block->accept(*this);
+		for (auto &stmt : node.stmts)
+			stmt->accept(*this);
 		end_scope(node.symbols);
 		return true;
 	}
@@ -109,6 +120,15 @@ struct TypeAnnotator : public AstVisitor
 	{
 		begin_scope();
 		node.block->accept(*this);
+		end_scope(node.symbols);
+		return true;
+	}
+
+	bool visit(SwitchStmt& node)
+	{
+		begin_scope();
+		for (auto &stmt : node.stmts)
+			stmt->accept(*this);
 		end_scope(node.symbols);
 		return true;
 	}

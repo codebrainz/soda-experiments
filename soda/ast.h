@@ -93,9 +93,10 @@ struct Block : public Stmt
 
 struct Alias : public Stmt
 {
-	IdentPtr type, alias;
+	IdentPtr type;
+	TypeIdentPtr alias;
 	template< typename... Args >
-	Alias(IdentPtr&& type, IdentPtr&& alias, Args... args)
+	Alias(IdentPtr&& type, TypeIdentPtr&& alias, Args... args)
 		: Stmt(args...), type(std::move(type)), alias(std::move(alias)) {}
 	SODA_NODE_VISITABLE
 };
@@ -167,16 +168,18 @@ struct CaseStmt : public Stmt
 	SODA_NODE_VISITABLE
 };
 
-struct ClassDef : public Block
+struct ClassDef : public Stmt
 {
 	IdentPtr name;
 	ExprList bases;
+	StmtList stmts;
 	SymbolTable symbols;
 	template< typename... Args >
-	ClassDef(IdentPtr&& name, ExprList&& bases, StmtPtr&& block, Args... args)
-		: Block(std::move(block), args...),
+	ClassDef(IdentPtr&& name, ExprList&& bases, StmtList&& stmts, Args... args)
+		: Stmt(args...),
 		  name(std::move(name)),
-		  bases(std::move(bases)) {}
+		  bases(std::move(bases)),
+		  stmts(std::move(stmts)) {}
 	SODA_NODE_VISITABLE
 };
 

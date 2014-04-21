@@ -18,7 +18,6 @@
 # include <uchar.h>
 # include <vector>
 # include <utf8/utf8.h>
-# include <soda/ast.h>
 #endif // SODA_INCLUDE_WHAT_YOU_USE
 
 #endif // SODA_INC_H

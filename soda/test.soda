@@ -1,4 +1,8 @@
-class foo{};
+
+class string {};
+class foo{ string lala; };
+
+alias foo2 = foo;
 
 void bla()
 {

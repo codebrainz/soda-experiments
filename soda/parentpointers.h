@@ -103,7 +103,8 @@ class ParentPointers : public AstVisitor
 		node.name->accept(*this);
 		for (auto &expr : node.bases)
 			expr->accept(*this);
-		node.block->accept(*this);
+		for (auto &stmt : node.stmts)
+			stmt->accept(*this);
 		pop_parent();
 		return true;
 	}
